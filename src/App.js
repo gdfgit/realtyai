@@ -1120,7 +1120,7 @@ export default function RealtyAI() {
                   color: '#fff', fontWeight: 800, fontSize: 12,
                 }}>R</div>
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>
-                  Get Approved in 15 Minutes
+                  Get Approved!
                 </span>
               </div>
               <button

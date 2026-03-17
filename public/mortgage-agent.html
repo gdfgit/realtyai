@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Get Approved in 15 Minutes — Realty AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--red:#C0392B;--red-light:#e74c3c;--red-bg:rgba(192,57,43,.06);--red-border:rgba(192,57,43,.15);--bg:#fff;--bg-subtle:#F8F7F5;--bg-chat:#FAFAF9;--text:#1a1a1a;--text-mid:#555;--text-light:#999;--border:#E8E6E1;--border-light:#F0EEEA;--shadow-sm:0 1px 3px rgba(0,0,0,.06);--shadow-md:0 4px 16px rgba(0,0,0,.08)}
+body{font-family:'Outfit',sans-serif;background:var(--bg-subtle);color:var(--text);height:100vh;overflow:hidden}
+.app{display:flex;height:100vh}
+.sidebar{width:290px;display:flex;flex-direction:column;background:var(--bg);border-right:1px solid var(--border);transition:width .3s;overflow:hidden}.sidebar.collapsed{width:0}
+.sidebar-back{display:flex;align-items:center;gap:8px;padding:14px 20px;background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;border-bottom:1px solid var(--border-light);width:100%;text-align:left}.sidebar-back:hover{background:var(--red-bg)}
+.s-brand{padding:24px 20px 16px;border-bottom:1px solid var(--border-light)}.s-brand .logo{display:flex;align-items:center;gap:10px;margin-bottom:12px}.s-brand .logo-icon{width:36px;height:36px;background:var(--red);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px}.s-brand .logo-text{font-size:18px;font-weight:700;color:var(--text)}.s-brand .logo-text span{color:var(--red)}.s-brand h2{font-family:'Source Serif 4',serif;font-size:22px;font-weight:600;color:var(--text);line-height:1.2;margin-top:4px}.s-brand .sub{font-size:12px;color:var(--text-light);margin-top:6px}.s-brand .badge-15{display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,var(--red),var(--red-light));color:#fff;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;margin-top:10px;letter-spacing:.5px}
+.prog{padding:16px 20px;border-bottom:1px solid var(--border-light)}.prog .row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px}.prog .row span:first-child{color:var(--text-light);font-weight:500}.prog .row span:last-child{color:var(--red);font-weight:700}.prog-track{height:5px;background:var(--border-light);border-radius:3px;overflow:hidden}.prog-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1);background:linear-gradient(90deg,var(--red),var(--red-light))}
+.nav{flex:1;overflow-y:auto;padding:8px 12px}.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;margin-bottom:1px;font-size:13px;cursor:default;transition:all .2s}.nav-item.active{background:var(--red-bg);color:var(--red);font-weight:600}.nav-item.complete{color:var(--text-light)}.nav-item.complete .ic{color:#27ae60}.nav-item.pending{color:#ccc}.nav-item .ic{font-size:15px;width:22px;text-align:center}
+.lo{padding:16px 20px;border-top:1px solid var(--border-light);background:var(--bg-subtle)}.lo .t{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-light);margin-bottom:6px}.lo div{font-size:12px;color:var(--text-mid);line-height:1.5}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg-chat)}
+.topbar{padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:var(--bg)}.topbar-left{display:flex;align-items:center;gap:12px}.menu-btn{background:none;border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px 10px;cursor:pointer;font-size:15px;font-family:inherit}.menu-btn:hover{background:var(--bg-subtle)}.topbar-title{font-size:15px;font-weight:600}.topbar-sub{font-size:11px;color:var(--text-light)}.topbar-badge{background:var(--red-bg);padding:6px 14px;border-radius:20px;font-size:12px;color:var(--red);font-weight:700;border:1px solid var(--red-border)}
+.chat{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:14px}
+.msg{display:flex;animation:fadeIn .35s ease}.msg.user{justify-content:flex-end}.msg.agent{justify-content:flex-start}
+.bubble{max-width:68%;padding:12px 16px;font-size:14px;line-height:1.65;box-shadow:var(--shadow-sm)}.msg.user .bubble{border-radius:16px 16px 4px 16px;background:var(--red);color:#fff}.msg.agent .bubble{border-radius:16px 16px 16px 4px;background:var(--bg);color:var(--text);border:1px solid var(--border)}.msg.agent .bubble strong{color:var(--red)}
+.typing-wrap{display:flex;justify-content:flex-start}.typing-b{padding:14px 20px;border-radius:16px 16px 16px 4px;background:var(--bg);border:1px solid var(--border);display:flex;gap:5px;align-items:center}.td{width:6px;height:6px;border-radius:50%;background:var(--red);animation:pulse 1.2s ease-in-out infinite}.td:nth-child(2){animation-delay:.2s}.td:nth-child(3){animation-delay:.4s}
+.review-card{background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:28px;margin-top:12px;box-shadow:var(--shadow-md)}.review-card h3{margin:0 0 20px;color:var(--text);font-size:20px;font-family:'Source Serif 4',serif}
+.highlight-box{background:var(--red-bg);border:1px solid var(--red-border);border-radius:12px;padding:18px;margin-bottom:24px}.highlight-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:14px}.highlight-grid .hl{color:var(--text-light);font-size:12px;font-weight:500;margin-bottom:2px}.highlight-grid .hv{color:var(--text);font-weight:700;font-size:16px}.highlight-grid .hv.price{color:var(--red);font-size:20px}
+.rs-title{font-size:12px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border-light)}.rg{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;margin-bottom:20px}.rf{font-size:13px;padding:3px 0}.rf .l{color:var(--text-light)}.rf .v{color:var(--text);font-weight:500}
+.submit-btn{width:100%;padding:16px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--red),var(--red-light));color:#fff;font-size:17px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .3s;position:relative;overflow:hidden}.submit-btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(192,57,43,.35)}.submit-btn:disabled{opacity:.6;cursor:wait;transform:none;box-shadow:none}.submit-btn .shimmer{position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);animation:shimmer 2s infinite}
+.success-box{background:linear-gradient(135deg,#f0faf0,#e8f8e8);border:1px solid rgba(39,174,96,.2);border-radius:12px;padding:24px;margin-top:16px;text-align:center}.success-box .check{font-size:48px;margin-bottom:8px}.success-box h4{color:#27ae60;font-size:18px}.success-box .loan-num{font-family:'Source Serif 4',serif;font-size:24px;color:var(--text);font-weight:600;margin:8px 0}.success-box .dash-btn{margin-top:16px;padding:12px 28px;border-radius:10px;border:none;background:var(--red);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}.success-box .dash-btn:hover{background:var(--red-light)}
+.input-area{padding:16px 24px;border-top:1px solid var(--border);background:var(--bg)}
+.sel-opts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}.opt-btn{padding:8px 16px;border-radius:20px;border:1px solid var(--red-border);background:var(--red-bg);color:var(--red);font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .2s}.opt-btn:hover{background:var(--red);color:#fff;border-color:var(--red)}
+.input-row{display:flex;gap:10px}.chat-input{flex:1;padding:13px 16px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;outline:none;font-family:inherit;transition:all .2s}.chat-input:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(192,57,43,.08)}.chat-input::placeholder{color:#bbb}
+.send-btn{padding:13px 22px;border-radius:10px;border:none;background:var(--border-light);color:#bbb;font-size:14px;font-weight:700;cursor:default;font-family:inherit;transition:all .2s}.send-btn.active{background:var(--red);color:#fff;cursor:pointer}.send-btn.active:hover{background:var(--red-light)}
+.skip-btn{padding:13px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text-light);font-size:12px;cursor:pointer;font-family:inherit;font-weight:500}.skip-btn:hover{border-color:var(--red-border);color:var(--red)}
+.file-row{display:flex;gap:10px}.upload-btn{flex:1;padding:14px;border-radius:10px;border:2px dashed var(--red-border);background:var(--red-bg);color:var(--red);font-size:14px;cursor:pointer;font-weight:600;font-family:inherit}.upload-btn:hover{background:rgba(192,57,43,.12);border-color:var(--red)}.file-skip-btn{padding:14px 18px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text-light);font-size:13px;cursor:pointer;font-family:inherit}
+.disclaimer{font-size:11px;color:var(--text-light);margin-top:10px;text-align:center;line-height:1.4}
+.prop-banner{background:linear-gradient(135deg,var(--red-bg),rgba(192,57,43,.03));border:1px solid var(--red-border);border-radius:12px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:12px}.prop-banner .prop-icon{width:40px;height:40px;background:var(--red);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0}.prop-banner .prop-info{font-size:13px;color:var(--text-mid);line-height:1.4}.prop-banner .prop-info strong{color:var(--text);display:block;font-size:14px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,80%,100%{opacity:.3;transform:scale(.8)}40%{opacity:1;transform:scale(1.1)}}
+@keyframes shimmer{0%{left:-100%}100%{left:200%}}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+@media(max-width:768px){.sidebar{position:fixed;z-index:100;height:100vh}.sidebar.collapsed{width:0}.bubble{max-width:88%!important}.rg,.highlight-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script>
+const LO={orgName:"NEXA Lending",name:"Giancarlo Di Fazio",nmls:"1913560",email:"gdifazio@nexalending.com",phone:"(949) 312-0103"};
+// Property context from URL params — passed when user clicks "Get Approved in 15 Minutes" on a property card
+// Example: /mortgage-agent?address=123+Main+St&city=Las+Vegas&state=NV&zip=89101&price=500000&type=Single+Family
+const P=(()=>{const p=new URLSearchParams(window.location.search);return{address:p.get('address')||'',city:p.get('city')||'',state:p.get('state')||'',zip:p.get('zip')||'',price:p.get('price')||'',type:p.get('type')||''};})();
+
+const SECTIONS=[
+  {id:"w",title:"Welcome",icon:"👋",fields:[],greeting:true},
+  {id:"personal",title:"Personal Info",icon:"👤",fields:[
+    {key:"firstName",label:"First Name",type:"text",req:true,q:"Let's get you pre-approved! What's your first name?"},
+    {key:"middleName",label:"Middle Name",type:"text",req:false,q:"Middle name? (Skip if none)"},
+    {key:"lastName",label:"Last Name",type:"text",req:true,q:"Last name?"},
+    {key:"ssn",label:"SSN",type:"ssn",req:true,q:"I'll need your Social Security Number. This is encrypted and secure.",sensitive:true},
+    {key:"dob",label:"Date of Birth",type:"text",req:true,q:"Date of birth? (MM/DD/YYYY)"},
+    {key:"citizenship",label:"Citizenship",type:"select",opts:["U.S. Citizen","Permanent Resident Alien","Non-Permanent Resident Alien"],req:true,q:"Citizenship status?"},
+    {key:"maritalStatus",label:"Marital Status",type:"select",opts:["Married","Separated","Unmarried"],req:true,q:"Marital status?"},
+    {key:"dependentsCount",label:"Dependents",type:"text",req:false,q:"Number of dependents? (0 if none)"},
+  ]},
+  {id:"contact",title:"Contact & Address",icon:"📱",fields:[
+    {key:"cellPhone",label:"Cell Phone",type:"text",req:true,q:"Cell phone number?"},
+    {key:"email",label:"Email",type:"text",req:true,q:"Email address?"},
+    {key:"currentStreet",label:"Street Address",type:"text",req:true,q:"Current street address?"},
+    {key:"currentCity",label:"City",type:"text",req:true,q:"City?"},
+    {key:"currentState",label:"State",type:"text",req:true,q:"State?"},
+    {key:"currentZip",label:"ZIP",type:"text",req:true,q:"ZIP code?"},
+    {key:"yearsAtAddress",label:"Years at Address",type:"text",req:true,q:"How many years at this address?"},
+    {key:"housingStatus",label:"Housing",type:"select",opts:["Own","Rent","No primary housing expense"],req:true,q:"Do you own or rent?"},
+  ]},
+  {id:"employment",title:"Employment & Income",icon:"💼",fields:[
+    {key:"employerName",label:"Employer",type:"text",req:true,q:"Current employer or business name?"},
+    {key:"jobTitle",label:"Position",type:"text",req:true,q:"Position or job title?"},
+    {key:"yearsInLine",label:"Years in Field",type:"text",req:true,q:"Years in this line of work?"},
+    {key:"isSelfEmployed",label:"Self-Employed",type:"select",opts:["No","Yes - under 25%","Yes - 25%+"],req:true,q:"Are you self-employed?"},
+    {key:"monthlyBase",label:"Monthly Base Pay",type:"text",req:true,q:"Gross monthly base pay?"},
+    {key:"monthlyOvertime",label:"Overtime",type:"text",req:false,q:"Monthly overtime? (0 or skip)"},
+    {key:"monthlyBonus",label:"Bonus",type:"text",req:false,q:"Monthly bonus?"},
+    {key:"monthlyCommission",label:"Commission",type:"text",req:false,q:"Monthly commission?"},
+  ]},
+  {id:"assets",title:"Assets",icon:"🏦",fields:[
+    {key:"assetType1",label:"Account Type",type:"select",opts:["Checking","Savings","Money Market","Retirement (401k/IRA)","Stocks","Mutual Fund"],req:true,q:"Primary account type?"},
+    {key:"assetInstitution1",label:"Institution",type:"text",req:true,q:"Financial institution?"},
+    {key:"assetValue1",label:"Balance",type:"text",req:true,q:"Current balance?"},
+    {key:"hasMoreAssets",label:"More Accounts",type:"select",opts:["No","Yes"],req:true,q:"Additional accounts?"},
+  ]},
+  {id:"liabilities",title:"Liabilities",icon:"💳",fields:[
+    {key:"hasLiabilities",label:"Has Debts",type:"select",opts:["No","Yes"],req:true,q:"Any debts? Credit cards, car loans, student loans?"},
+    {key:"liabType1",label:"Debt Type",type:"select",opts:["Revolving (credit cards)","Installment (car/student)","Lease","Other"],req:false,cond:d=>d.hasLiabilities==="Yes",q:"Type of debt?"},
+    {key:"liabCompany1",label:"Creditor",type:"text",req:false,cond:d=>d.hasLiabilities==="Yes",q:"Creditor?"},
+    {key:"liabBalance1",label:"Balance",type:"text",req:false,cond:d=>d.hasLiabilities==="Yes",q:"Unpaid balance?"},
+    {key:"liabPayment1",label:"Monthly Payment",type:"text",req:false,cond:d=>d.hasLiabilities==="Yes",q:"Monthly payment?"},
+  ]},
+  {id:"loanInfo",title:"Loan & Property",icon:"🏠",fields:[
+    {key:"loanPurpose",label:"Purpose",type:"select",opts:["Purchase","Refinance"],req:true,q:"Purchase or refinance?"},
+    {key:"loanAmount",label:"Loan Amount",type:"text",req:true,q:"Desired loan amount?"},
+    {key:"propertyStreet",label:"Property Address",type:"text",req:true,q:"Property address?"},
+    {key:"propertyCity",label:"City",type:"text",req:true,q:"Property city?"},
+    {key:"propertyState",label:"State",type:"text",req:true,q:"State?"},
+    {key:"propertyZip",label:"ZIP",type:"text",req:true,q:"ZIP?"},
+    {key:"propertyValue",label:"Purchase Price",type:"text",req:true,q:"Purchase price?"},
+    {key:"numUnits",label:"Units",type:"select",opts:["1","2","3","4"],req:true,q:"Number of units?"},
+    {key:"occupancy",label:"Occupancy",type:"select",opts:["Primary Residence","Second Home","Investment Property"],req:true,q:"How will you use this property?"},
+    {key:"financingType",label:"Loan Type",type:"select",opts:["Conventional","FHA","VA","Other"],req:true,q:"Loan type?"},
+    {key:"propertyType",label:"Property Type",type:"select",opts:["Single Family","Condo","Townhouse","Multi-Family","Manufactured"],req:true,q:"Property type?"},
+  ]},
+  {id:"dec",title:"Declarations",icon:"✅",fields:[
+    {key:"willOccupy",label:"Primary Residence",type:"select",opts:["No","Yes"],req:true,q:"Will this be your primary residence?"},
+    {key:"judgments",label:"Judgments",type:"select",opts:["No","Yes"],req:true,q:"Outstanding judgments?"},
+    {key:"foreclosure",label:"Foreclosure",type:"select",opts:["No","Yes"],req:true,q:"Foreclosure in last 7 years?"},
+    {key:"bankruptcy",label:"Bankruptcy",type:"select",opts:["No","Yes"],req:true,q:"Bankruptcy in last 7 years?"},
+    {key:"milService",label:"Military",type:"select",opts:["No","Yes"],req:true,q:"U.S. military service?"},
+  ]},
+  {id:"docs",title:"Documents",icon:"📎",fields:[
+    {key:"_dn",label:"",type:"notice",msg:"Almost done! Upload documents now or provide later — your loan officer will follow up."},
+    {key:"up1",label:"Pay Stubs",type:"file",req:false,q:"Upload 2 most recent pay stubs."},
+    {key:"up2",label:"Bank Statements",type:"file",req:false,q:"Upload 2 most recent bank statements."},
+    {key:"up3",label:"Photo ID",type:"file",req:false,q:"Upload government-issued photo ID."},
+  ]},
+  {id:"review",title:"Review & Submit",icon:"🚀",fields:[],review:true},
+];
+
+let S={data:{},files:{},secIdx:0,fldIdx:0,msgs:[],typing:false,submitting:false,submitted:false,result:null,sidebarOpen:true};
+if(P.address)S.data.propertyStreet=P.address;if(P.city)S.data.propertyCity=P.city;if(P.state)S.data.propertyState=P.state;if(P.zip)S.data.propertyZip=P.zip;if(P.price)S.data.propertyValue=P.price;if(P.type)S.data.propertyType=P.type;
+
+function af(si,d){const s=SECTIONS[si];if(!s||!s.fields)return[];return s.fields.filter(f=>{if(f.type==='computed')return false;if(f.cond)return f.cond(d);return true;});}
+function pct(){let t=0,f=0;SECTIONS.forEach(s=>{if(s.greeting||s.review)return;s.fields.filter(x=>x.type!=='computed'&&x.type!=='notice'&&x.type!=='file'&&(x.cond?x.cond(S.data):x.req)).forEach(x=>{t++;if(S.data[x.key])f++;});});return t?Math.round(f/t*100):0;}
+function fmt(t){return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br/>');}
+function render(){
+  const sec=SECTIONS[S.secIdx],fields=af(S.secIdx,S.data),cf=fields[S.fldIdx],p=pct(),isReview=sec?.review,isSelect=cf?.type==='select',isFile=cf?.type==='file',hasProp=P.address||P.price;
+  document.getElementById('app').innerHTML=`<div class="sidebar ${S.sidebarOpen?'':'collapsed'}"><button class="sidebar-back" onclick="navBack()">← Back to Realty AI</button><div class="s-brand"><div class="logo"><div class="logo-icon">R</div><div class="logo-text">Realty <span>AI</span></div></div><h2>Mortgage Application</h2><div class="sub">Uniform Residential Loan Application</div><div class="badge-15">⚡ Get Approved in 15 Minutes</div></div><div class="prog"><div class="row"><span>Progress</span><span>${p}%</span></div><div class="prog-track"><div class="prog-fill" style="width:${p}%"></div></div></div><div class="nav">${SECTIONS.filter(s=>!s.greeting).map((s,i)=>{const ri=i+1,cls=S.secIdx===ri?'active':S.secIdx>ri?'complete':'pending';return`<div class="nav-item ${cls}"><span class="ic">${S.secIdx>ri?'✓':s.icon}</span><span>${s.title}</span></div>`;}).join('')}</div><div class="lo"><div class="t">Your Loan Officer</div><div><strong>${LO.name}</strong></div><div>NMLS# ${LO.nmls} • ${LO.orgName}</div><div>${LO.email}</div><div>${LO.phone}</div></div></div><div class="main"><div class="topbar"><div class="topbar-left"><button class="menu-btn" onclick="toggleSB()">☰</button><div><div class="topbar-title">${sec?.icon||''} ${sec?.title||''}</div><div class="topbar-sub">Section ${S.secIdx} of ${SECTIONS.length-1}</div></div></div><div class="topbar-badge">${p}% Complete</div></div><div class="chat" id="chatArea">${hasProp&&S.msgs.length<=1?`<div class="prop-banner"><div class="prop-icon">🏠</div><div class="prop-info"><strong>${P.address||'Selected Property'}</strong>${P.price?'$'+Number(P.price).toLocaleString():''} ${P.city?'• '+P.city+', '+P.state:''}</div></div>`:''}${S.msgs.map(m=>`<div class="msg ${m.type}"><div class="bubble">${fmt(m.text)}</div></div>`).join('')}${S.typing?`<div class="typing-wrap"><div class="typing-b"><div class="td"></div><div class="td"></div><div class="td"></div></div></div>`:''}${isReview&&!S.submitted?renderReview():''}${S.submitted?renderSuccess():''}</div>${!isReview&&!S.submitted?`<div class="input-area">${isSelect&&cf?.opts?`<div class="sel-opts">${cf.opts.map(o=>`<button class="opt-btn" onclick="selOpt('${o.replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>`:''}${isFile?`<div class="file-row"><button class="upload-btn" onclick="document.getElementById('fInp').click()">📎 Upload Files</button><button class="file-skip-btn" onclick="skipFile()">Provide Later</button></div><input type="file" id="fInp" style="display:none" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="handleFile(event)"/>`:`<div class="input-row"><input class="chat-input" id="inp" type="${cf?.type==='ssn'?'password':'text'}" placeholder="${cf?'Type your '+cf.label.toLowerCase()+'...':'Type...'}" onkeydown="if(event.key==='Enter')send()"/><button class="send-btn" id="sendBtn" onclick="send()">Send</button>${cf&&!cf.req?'<button class="skip-btn" onclick="skip()">Skip</button>':''}</div>`}<div class="disclaimer">🔒 Encrypted & secure. By proceeding you consent to a credit inquiry.</div></div>`:''}</div>`;
+  const ca=document.getElementById('chatArea');if(ca)ca.scrollTop=ca.scrollHeight;const inp=document.getElementById('inp');if(inp){inp.focus();inp.addEventListener('input',()=>{const b=document.getElementById('sendBtn');if(b){inp.value.trim()?b.classList.add('active'):b.classList.remove('active');}});}
+}
+function renderReview(){let h='<div class="review-card"><h3>📋 Application Summary</h3><div class="highlight-box"><div class="highlight-grid"><div><div class="hl">Purchase Price</div><div class="hv price">$'+Number(S.data.propertyValue||0).toLocaleString()+'</div></div><div><div class="hl">Loan Amount</div><div class="hv">$'+Number(S.data.loanAmount||0).toLocaleString()+'</div></div><div><div class="hl">Loan Type</div><div class="hv">'+(S.data.financingType||'—')+'</div></div><div><div class="hl">Occupancy</div><div class="hv">'+(S.data.occupancy||'—')+'</div></div></div></div>';SECTIONS.filter(s=>!s.greeting&&!s.review&&s.fields.length).forEach(sec=>{const filled=sec.fields.filter(f=>f.type!=='computed'&&f.type!=='notice'&&f.type!=='file'&&S.data[f.key]);if(!filled.length)return;h+='<div class="rs-title">'+sec.icon+' '+sec.title+'</div><div class="rg">';filled.forEach(f=>{const v=f.sensitive?'•••••'+S.data[f.key].slice(-4):S.data[f.key];h+='<div class="rf"><span class="l">'+f.label+': </span><span class="v">'+v+'</span></div>';});h+='</div>';});h+='<div class="rs-title">🏦 Loan Officer</div><div style="font-size:13px;color:var(--text-mid);margin-bottom:24px">'+LO.name+' • NMLS# '+LO.nmls+'<br/>'+LO.orgName+' • '+LO.email+'</div>';h+='<button class="submit-btn" '+(S.submitting?'disabled':'')+' onclick="submitApp()"><span class="shimmer"></span>'+(S.submitting?'⏳ Submitting to LendingPad...':'⚡ Submit — Get Approved in 15 Minutes')+'</button></div>';return h;}
+function renderSuccess(){if(!S.result)return'';return'<div class="success-box"><div class="check">✅</div><h4>Application Submitted!</h4><div class="loan-num">Loan #'+S.result.ln+'</div><p style="color:var(--text-mid);font-size:14px">Created in LendingPad • Assigned to '+LO.name+'</p><p style="color:var(--text-light);font-size:13px;margin-top:8px">Reviewing against <strong>250+ lenders</strong> for best rate. Expect a call within 15 minutes.</p><button class="dash-btn" onclick="navBack()">← Return to Realty AI</button></div>';}
+function addAgent(t,d=500){S.typing=true;render();return new Promise(r=>{setTimeout(()=>{S.msgs.push({type:'agent',text:t});S.typing=false;render();r();},d);});}
+function addUser(t){S.msgs.push({type:'user',text:t});render();}
+async function askNext(si,fi,d){const fields=af(si,d);if(fi>=fields.length){const nsi=si+1;if(nsi>=SECTIONS.length){S.secIdx=SECTIONS.length-1;render();return;}const ns=SECTIONS[nsi];if(ns.review){await addAgent("Review your application and submit when ready.");S.secIdx=nsi;render();return;}await addAgent(`Moving to **${ns.icon} ${ns.title}**...`,300);S.secIdx=nsi;S.fldIdx=0;render();setTimeout(()=>askNext(nsi,0,d),600);return;}const f=fields[fi];if(f.type==='notice'){await addAgent(f.msg,300);S.fldIdx=fi+1;render();setTimeout(()=>askNext(si,fi+1,d),400);return;}if(f.key==='propertyStreet'&&S.data.propertyStreet){await addAgent(`I see you're looking at **${S.data.propertyStreet}**${S.data.propertyCity?', '+S.data.propertyCity:''}${S.data.propertyValue?' — $'+Number(S.data.propertyValue).toLocaleString():''}. I've pre-filled the property details.`);let skip=fi;while(skip<fields.length&&S.data[fields[skip]?.key])skip++;if(skip>fi){S.fldIdx=skip;setTimeout(()=>askNext(si,skip,d),700);return;}}await addAgent(f.q);S.fldIdx=fi;render();}
+function send(){const inp=document.getElementById('inp');const v=inp?.value?.trim();if(!v)return;processInput(v);}
+function selOpt(v){processInput(v);}
+function skip(){addUser('skip');S.fldIdx++;setTimeout(()=>askNext(S.secIdx,S.fldIdx,S.data),300);}
+function skipFile(){addUser("I'll provide later");addAgent("No problem ✓",200).then(()=>{S.fldIdx++;askNext(S.secIdx,S.fldIdx,S.data);});}
+function handleFile(e){const files=Array.from(e.target.files);if(!files.length)return;const fields=af(S.secIdx,S.data),cf=fields[S.fldIdx];S.files[cf.key]=[...(S.files[cf.key]||[]),...files];addUser('📎 '+files.map(f=>f.name).join(', '));addAgent(`Received ${files.length} file(s) ✓`,200).then(()=>{S.fldIdx++;askNext(S.secIdx,S.fldIdx,S.data);});}
+async function processInput(v){const fields=af(S.secIdx,S.data),cf=fields[S.fldIdx];addUser(v);if(cf){if((v.toLowerCase()==='skip'||v.toLowerCase()==='none')&&!cf.req){S.fldIdx++;setTimeout(()=>askNext(S.secIdx,S.fldIdx,S.data),300);return;}S.data[cf.key]=v;const disp=cf.sensitive?'•••••'+v.slice(-4):v;await addAgent(`**${cf.label}**: ${disp} ✓`,200);const naf=af(S.secIdx,S.data),nfi=S.fldIdx+1;if(nfi<naf.length){S.fldIdx=nfi;setTimeout(()=>askNext(S.secIdx,nfi,S.data),300);}else{const nsi=S.secIdx+1;if(nsi<SECTIONS.length){const ns=SECTIONS[nsi];if(ns.review){await addAgent("Review your application and submit when ready.");S.secIdx=nsi;render();}else{await addAgent(`Moving to **${ns.icon} ${ns.title}**...`,300);S.secIdx=nsi;S.fldIdx=0;render();setTimeout(()=>askNext(nsi,0,S.data),600);}}}}}
+async function submitApp(){S.submitting=true;render();await addAgent("⚡ Submitting to LendingPad...");
+/* ═══ PRODUCTION: Replace with Zapier webhook POST ═══
+const res = await fetch('YOUR_ZAPIER_WEBHOOK_URL',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({borrowerFirstName:S.data.firstName,borrowerLastName:S.data.lastName,borrowerEmail:S.data.email,borrowerMobilePhone:S.data.cellPhone,borrowerSsn:S.data.ssn,borrowerBirthDate:S.data.dob,borrowerCurrentAddressStreet:S.data.currentStreet,borrowerCurrentAddressCity:S.data.currentCity,borrowerCurrentAddressState:S.data.currentState,borrowerCurrentAddressZipCode:S.data.currentZip,purpose:S.data.loanPurpose,loanType:S.data.financingType,loanAmount:S.data.loanAmount,purchasePrice:S.data.propertyValue,occupancy:S.data.occupancy,propertyType:S.data.propertyType,units:S.data.numUnits,subjectPropertyAddressStreet:S.data.propertyStreet,subjectPropertyAddressCity:S.data.propertyCity,subjectPropertyAddressState:S.data.propertyState,subjectPropertyAddressZipCode:S.data.propertyZip,loanOfficerEmail:'gdifazio@nexalending.com',loanOfficerNmlsId:'1913560',note:'Submitted via Realty AI — Get Approved in 15 Minutes'})});
+*/
+await new Promise(r=>setTimeout(r,2500));const ln='N'+Date.now().toString().slice(-6);S.result={ln};S.submitted=true;S.submitting=false;await addAgent(`🎉 **Application Submitted!**\n\nLoan **#${ln}** created in LendingPad.\n\nReviewing against **250+ lenders** for the best rate. Expect a call within 15 minutes.`);}
+function toggleSB(){S.sidebarOpen=!S.sidebarOpen;render();}
+function navBack(){if(document.referrer)window.location.href=document.referrer;else window.location.href='https://realtyai.netlify.app';}
+// ═══ INIT — Straight to first question ═══
+async function init(){S.secIdx=1;S.fldIdx=0;render();setTimeout(()=>askNext(1,0,S.data),500);}
+init();
+</script>
+</body>
+</html>

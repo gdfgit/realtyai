@@ -70,6 +70,7 @@ const Icons = {
 };
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────
+// *** CHANGE 1: Added @keyframes slideUp for the mortgage panel animation ***
 const globalCSS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:wght@400;600;700&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -79,13 +80,13 @@ const globalCSS = `
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
   @keyframes slideIn { from { opacity:0; transform: translateX(-20px); } to { opacity:1; transform: translateX(0); } }
   @keyframes dotBounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+  @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
   input:-webkit-autofill { -webkit-box-shadow: 0 0 0 40px white inset !important; }
 `;
 
 // ─── DEMO MODE ────────────────────────────────────────────────────────
-// Set to true to bypass Supabase/EmailJS/Tavily for local preview
 const DEMO_MODE = false;
 
 // ─── SUPABASE HELPERS ─────────────────────────────────────────────────
@@ -149,12 +150,10 @@ async function fetchMortgageRate() {
   try {
     const res = await tavilySearch("today's 30 year fixed mortgage rate MND daily mortgage rate index");
     const allContent = (res.results || []).map(r => r.content).join(" ");
-    // Look for patterns like "6.75%", "7.02%", etc near "30" or "fixed"
     const rateMatch = allContent.match(/(?:30[- ]?year[- ]?fixed|30[- ]?yr)[^]*?(\d\.\d{1,2})%/i)
       || allContent.match(/(\d\.\d{1,2})%[^]*?(?:30[- ]?year|30[- ]?yr|fixed)/i)
       || allContent.match(/(?:average|current|today)[^]*?(\d\.\d{1,2})%/i);
     if (rateMatch) return parseFloat(rateMatch[1]);
-    // Fallback: find any reasonable mortgage rate in the content
     const anyRate = allContent.match(/(\d\.\d{1,2})%/);
     if (anyRate) {
       const r = parseFloat(anyRate[1]);
@@ -163,12 +162,11 @@ async function fetchMortgageRate() {
   } catch (e) {
     console.log("Could not fetch mortgage rate, using fallback");
   }
-  return 6.75; // fallback
+  return 6.75;
 }
 
 // ─── DETECT IF QUERY IS A SPECIFIC ADDRESS ────────────────────────────
 function isSpecificAddress(query) {
-  // Matches patterns like "123 Main St", "1200 Bel Air Rd, Los Angeles, CA 90077"
   return /^\d+\s+[A-Za-z]/i.test(query.trim()) &&
     /\b(st|street|ave|avenue|blvd|boulevard|dr|drive|ln|lane|rd|road|ct|court|way|pl|place|cir|circle|pkwy|parkway)\b/i.test(query);
 }
@@ -251,7 +249,7 @@ function TypingDots() {
 
 // ─── REGISTRATION COMPONENT ──────────────────────────────────────────
 function RegistrationScreen({ onLogin }) {
-  const [mode, setMode] = useState("login"); // login | register | verify
+  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -265,7 +263,6 @@ function RegistrationScreen({ onLogin }) {
     if (!name || !email || !password) { setError("Please fill in all fields."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
     setLoading(true); setError("");
-
     if (DEMO_MODE) {
       const demoCode = generateCode();
       setSentCode(demoCode);
@@ -273,7 +270,6 @@ function RegistrationScreen({ onLogin }) {
       setLoading(false);
       return;
     }
-
     try {
       const { error: dbErr } = await supabaseRequest("/users?email=eq." + encodeURIComponent(email), { method: "GET" });
       const vCode = generateCode();
@@ -308,13 +304,11 @@ function RegistrationScreen({ onLogin }) {
   const handleLogin = async () => {
     if (!email || !password) { setError("Please enter email and password."); return; }
     setLoading(true); setError("");
-
     if (DEMO_MODE) {
       onLogin({ email, name: email.split("@")[0] });
       setLoading(false);
       return;
     }
-
     try {
       const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(password)}`, { method: "GET" });
       if (data && data.length > 0 && data[0].verified) {
@@ -341,7 +335,6 @@ function RegistrationScreen({ onLogin }) {
         boxShadow: "0 20px 60px rgba(0,0,0,0.08)", padding: "48px 36px",
         animation: "fadeUp 0.5s ease-out",
       }}>
-        {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <img src="/logo.png" alt="Realty AI" style={{
             width: 100, height: 100, borderRadius: 20,
@@ -495,10 +488,8 @@ function RichContent({ content }) {
 }
 
 function formatText(text) {
-  // Convert markdown tables to HTML tables with red headers
   let html = text;
 
-  // Handle tables: detect lines starting with |
   const lines = html.split('\n');
   let inTable = false;
   let tableHTML = '';
@@ -513,7 +504,6 @@ function formatText(text) {
         headerDone = false;
         tableHTML = '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin:12px 0;"><table style="width:100%;min-width:320px;border-collapse:collapse;font-size:13px;border-radius:8px;overflow:hidden;">';
       }
-      // Skip separator lines like |---|---|
       if (line.match(/^\|[\s\-:|]+\|$/)) {
         headerDone = true;
         continue;
@@ -552,19 +542,10 @@ function formatText(text) {
 
   html = processed.join('\n');
 
-  // Handle inline images: {{IMG:url}}
   html = html.replace(/\{\{IMG:(.*?)\}\}/g, '<img src="$1" style="width:100%;max-width:280px;height:180px;object-fit:cover;border-radius:10px;margin:4px;" onerror="this.style.display=\'none\'" />');
-
-  // Dividers first (before line breaks)
   html = html.replace(/━+/g, '<hr style="border:none;border-top:2px solid #E5E7EB;margin:12px 0;"/>');
-
-  // Links FIRST (before bold, so **text** inside links doesn't break)
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:#E31837;text-decoration:underline;font-weight:500">$1</a>');
-
-  // Then Bold
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-  // Line breaks
   html = html.replace(/\n/g, '<br/>');
 
   return html;
@@ -574,26 +555,19 @@ function formatText(text) {
 function cleanContent(rawContent) {
   if (!rawContent) return "";
   let text = rawContent;
-  // Remove markdown headers like ### Parking, ## About, etc
   text = text.replace(/#{1,4}\s*[A-Za-z\s&]+\n?/g, '');
-  // Remove price/sqft spam lines
   text = text.replace(/\$[\d,]+\/sq\s*ft\s*/g, '');
-  // Remove Rocket Mortgage disclaimers and legal text
   text = text.replace(/All mortgage lending products[\s\S]*?(?=\n\n|\Z)/gi, '');
   text = text.replace(/Redfin Corporation[\s\S]*?(?=\n\n|\Z)/gi, '');
   text = text.replace(/If you are using a screen reader[\s\S]*?(?=\n\n|\Z)/gi, '');
   text = text.replace(/This site is not authorized[\s\S]*?(?=\n\n|\Z)/gi, '');
   text = text.replace(/NMLS\s*#\d+[^.]*\./gi, '');
   text = text.replace(/Licensed in \d+ states\.[^.]*\./gi, '');
-  // Remove empty table fragments
   text = text.replace(/\|\s*\|/g, '');
   text = text.replace(/\|\s*\d+\s+\$[\d,]+\s+\d+\s+bed.*?\|/g, '');
-  // Remove "Show more", "View estimated", misc
   text = text.replace(/Show more\s*\.{0,3}/gi, '');
   text = text.replace(/View estimated energy.*$/gim, '');
-  // Trim excessive whitespace
   text = text.replace(/\n{3,}/g, '\n\n').trim();
-  // Limit to first meaningful paragraph (~300 chars)
   const sentences = text.split(/\.\s+/);
   let cleaned = "";
   for (const s of sentences) {
@@ -605,7 +579,6 @@ function cleanContent(rawContent) {
 
 // ─── EXTRACT LOCATION FROM QUERY ──────────────────────────────────────
 function extractLocationFromQuery(query) {
-  // Try to find city/state/zip patterns
   const cityState = query.match(/(?:in|near|around)\s+([A-Za-z\s]+(?:,\s*[A-Z]{2})?)/i);
   if (cityState) return cityState[1].trim();
   const zip = query.match(/\b\d{5}\b/);
@@ -622,8 +595,6 @@ function buildPropertyResponse(query, searchResults, mortgageRate, isAddressSear
   const images = searchResults.images || [];
   const rate = mortgageRate || 6.75;
 
-  // For specific address searches, use the full query as the address
-  // For city searches, extract location from query
   const exactAddress = isAddressSearch ? query.trim() : "";
   const location = isAddressSearch ? exactAddress : extractLocationFromQuery(query);
   const mapAddress = exactAddress || location || extractAddress(results[0]?.title || "") || "property location";
@@ -642,59 +613,42 @@ function buildPropertyResponse(query, searchResults, mortgageRate, isAddressSear
     return output;
   }
 
-  // ── SPECIFIC ADDRESS SEARCH ──────────────────────────────────────
   if (isAddressSearch) {
     output += `🏠 **Property Details**\n\n`;
     output += `**${exactAddress}**\n\n`;
-
-    // Photos
     if (images.length > 0) {
       output += `📸 **Property Photos**\n\n`;
       images.forEach((img) => { output += `{{IMG:${img}}}\n`; });
       output += `\n`;
     }
-
-    // Show the best listing link (first result that's from a real estate site)
     const reSites = results.filter(r => r.url.match(/zillow|realtor\.com|redfin|homes\.com/i));
     const bestResult = reSites[0] || results[0];
     if (bestResult) {
       output += `🔗 [View Full Listing](${bestResult.url})\n\n`;
     }
-
-    // Extract price from results
     const allContent = results.map(r => r.content || "").join(" ") + " " + results.map(r => r.title || "").join(" ");
     const price = extractPrice(allContent) || 500000;
     const sqft = extractSqft(allContent) || 2000;
-
-    // Mortgage
     output += buildMortgageTable(price, rate);
-    // CMA
     output += buildCMATable(price, sqft);
-    // Confident Trigger
     output += buildConfidentTrigger(price, sqft);
-    // Area links with EXACT address
     output += buildAreaLinks(exactAddress, encodedAddr);
-    // Call to action
     output += buildCallToAction();
-
     return output;
   }
 
-  // ── CITY / GENERAL SEARCH ────────────────────────────────────────
   if (isCommercial) {
     output += `🏢 **Commercial Real Estate Results**\n\n`;
   } else {
     output += `🏠 **Residential Property Results**\n\n`;
   }
 
-  // Photos
   if (images.length > 0) {
     output += `📸 **Property Photos**\n\n`;
     images.forEach((img) => { output += `{{IMG:${img}}}\n`; });
     output += `\n`;
   }
 
-  // Listings
   results.forEach((r) => {
     output += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
     output += `**${r.title}**\n\n`;
@@ -705,7 +659,6 @@ function buildPropertyResponse(query, searchResults, mortgageRate, isAddressSear
     const allContent = results.map(r => r.content || "").join(" ");
     const price = extractPrice(allContent) || 500000;
     const sqft = extractSqft(allContent) || 2000;
-
     output += buildMortgageTable(price, rate);
     output += buildCMATable(price, sqft);
     output += buildConfidentTrigger(price, sqft);
@@ -720,7 +673,7 @@ function buildPropertyResponse(query, searchResults, mortgageRate, isAddressSear
   return output;
 }
 
-// ─── TABLE BUILDERS (responsive) ──────────────────────────────────────
+// ─── TABLE BUILDERS ───────────────────────────────────────────────────
 function buildMortgageTable(price, rate) {
   let o = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   o += `💰 **Mortgage Estimate** (Rate: ${rate}% — 30yr Fixed, via MND Daily Index)\n`;
@@ -779,21 +732,20 @@ function buildAreaLinks(address, encodedAddr) {
   return o;
 }
 
+// *** CHANGE 2: Updated link from askangel.ai to #mortgage-agent ***
 function buildCallToAction() {
   let o = `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   o += `🎯 **Take Action**\n\n`;
   o += `[📅 Schedule a Tour](https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ0A8_eNZZH1LljBWEEU0DIIQ7JwWNzlnFrWvGD7UB-aye3aZJRcLk9tRsMeiV1UesGVsGHQeZW6)\n`;
   o += `[📝 Submit an Offer](https://www.nationrealtor.com/submit-an-offer)\n`;
-  o += `[✅ Get Approved in 15 Minutes!](/mortgage-agent.html)\n`;
+  o += `[✅ Get Approved in 15 Minutes!](#mortgage-agent)\n`;
   o += `[🎥 Live Stream](https://studio.restream.io/euf-vqup-uwl)\n`;
   return o;
 }
 
 function extractPrice(text) {
-  // Try to find prices like $2,500,000 or $875,000
   const matches = text.match(/\$([0-9,]+(?:,\d{3})*)/g);
   if (matches) {
-    // Return the highest price found (likely the listing price, not per sqft)
     const prices = matches.map(m => parseInt(m.replace(/[$,]/g, ""))).filter(p => p > 50000);
     if (prices.length > 0) return Math.max(...prices);
   }
@@ -819,6 +771,8 @@ export default function RealtyAI() {
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [attachments, setAttachments] = useState([]);
+  // *** CHANGE 3: Added mortgage agent panel state ***
+  const [showMortgageAgent, setShowMortgageAgent] = useState(false);
   const chatRef = useRef(null);
   const fileRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -840,15 +794,26 @@ export default function RealtyAI() {
     }
   }, [user]);
 
+  // *** CHANGE 4: Intercept #mortgage-agent link clicks to open panel ***
+  useEffect(() => {
+    const handleClick = (e) => {
+      const link = e.target.closest('a');
+      if (link && link.getAttribute('href') === '#mortgage-agent') {
+        e.preventDefault();
+        setShowMortgageAgent(true);
+      }
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
   const handleSend = async () => {
     const text = input.trim();
     if (!text && attachments.length === 0) return;
 
-    // Security check - only block clearly non-real-estate topics
     const lowerText = text.toLowerCase();
     const isNonRealEstate = lowerText.match(/^(write me a poem|tell me a joke|what is the meaning of life|who is the president|write code|help me with math|translate|recipe|cook|weather forecast|stock market|crypto|bitcoin|sports score|movie review|book summary|play a game)/);
     const isGreeting = lowerText.match(/^(hi|hello|hey|good morning|good afternoon|good evening|what can you do|help|how are you)/);
-    // Detect addresses: numbers + street names, zip codes, city/state patterns
     const hasAddress = lowerText.match(/\d+\s+\w+\s+(st|street|ave|avenue|blvd|boulevard|dr|drive|ln|lane|rd|road|ct|court|way|pl|place|cir|circle|pkwy|parkway)|(\d{5})|([a-z]+,?\s*(ca|ny|tx|fl|az|nv|wa|or|co|il|ga|nc|sc|va|md|pa|nj|oh|mi|ma|ct|mn|wi|mo|tn|in|al|la|ky|ok|ut|ia|ar|ms|ks|ne|nm|id|hi|me|nh|ri|mt|de|sd|nd|ak|vt|wy|wv|dc))\b/i);
 
     const userMsg = {
@@ -882,7 +847,6 @@ export default function RealtyAI() {
       return;
     }
 
-    // Build search query for Tavily
     let searchQuery = text;
     const isCommercial = lowerText.match(/commercial|lease|restaurant|office|retail|business for sale/);
     const isNewConst = lowerText.match(/new home|new construction/);
@@ -893,24 +857,20 @@ export default function RealtyAI() {
     } else if (isNewConst) {
       searchQuery += " new construction homes";
     } else if (isAddress) {
-      // For specific addresses, search that exact address on real estate sites
       searchQuery = `"${text}" zillow OR realtor.com OR redfin`;
     } else {
       searchQuery += " site:zillow.com OR site:realtor.com OR site:redfin.com OR site:homes.com";
     }
 
     try {
-      // Fetch mortgage rate and property data in parallel
       const [results, mortgageRate] = await Promise.all([
         tavilySearch(searchQuery),
         fetchMortgageRate(),
       ]);
       const response = buildPropertyResponse(text, results, mortgageRate, isAddress);
 
-      // Stream simulation for better UX
       const words = response.split(" ");
       let streamed = "";
-      const msgIndex = messages.length + 1;
 
       setMessages((prev) => [...prev, { role: "assistant", type: "rich", content: "", streaming: true }]);
 
@@ -933,7 +893,6 @@ export default function RealtyAI() {
     setLoading(false);
   };
 
-  // Voice search
   const toggleVoice = () => {
     if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
       alert("Voice search is not supported in this browser.");
@@ -961,7 +920,6 @@ export default function RealtyAI() {
     setListening(true);
   };
 
-  // File upload
   const handleFiles = (e) => {
     const files = Array.from(e.target.files);
     setAttachments((prev) => [...prev, ...files.map((f) => ({ name: f.name, size: f.size, type: f.type }))]);
@@ -1069,7 +1027,6 @@ export default function RealtyAI() {
           <div style={{
             maxWidth: 820, margin: "0 auto", display: "flex", gap: 10, alignItems: "center",
           }}>
-            {/* + Button for files */}
             <button onClick={() => fileRef.current?.click()} style={{
               width: 42, height: 42, borderRadius: 12, border: `2px solid ${theme.greyLight}`,
               background: theme.white, cursor: "pointer", display: "flex",
@@ -1085,7 +1042,6 @@ export default function RealtyAI() {
               accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"
               onChange={handleFiles} />
 
-            {/* Text Input */}
             <div style={{ flex: 1, position: "relative" }}>
               <input
                 value={input}
@@ -1101,7 +1057,6 @@ export default function RealtyAI() {
                 onFocus={(e) => e.target.style.borderColor = theme.red}
                 onBlur={(e) => e.target.style.borderColor = theme.greyLight}
               />
-              {/* Mic button inside input */}
               <button onClick={toggleVoice} style={{
                 position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
                 background: "none", border: "none", cursor: "pointer",
@@ -1112,7 +1067,6 @@ export default function RealtyAI() {
               </button>
             </div>
 
-            {/* Send */}
             <button onClick={handleSend} disabled={loading} style={{
               width: 48, height: 48, borderRadius: 14, border: "none",
               background: theme.red, color: theme.white, cursor: "pointer",
@@ -1131,6 +1085,65 @@ export default function RealtyAI() {
           </p>
         </div>
       </div>
+
+      {/* *** CHANGE 5: Mortgage Agent Overlay Panel — Mobile Optimized *** */}
+      {showMortgageAgent && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 9999, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowMortgageAgent(false); }}
+        >
+          <div style={{
+            width: window.innerWidth <= 768 ? '100%' : '95%',
+            maxWidth: window.innerWidth <= 768 ? '100%' : 1200,
+            height: window.innerWidth <= 768 ? '100%' : '92vh',
+            background: '#fff',
+            borderRadius: window.innerWidth <= 768 ? 0 : '16px 16px 0 0',
+            boxShadow: '0 -4px 40px rgba(0,0,0,0.25)',
+            position: 'relative', overflow: 'hidden',
+            animation: 'slideUp 0.3s ease-out',
+          }}>
+            {/* Header bar with close button */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 16px',
+              background: '#fff',
+              borderBottom: '1px solid #E5E7EB',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  width: 28, height: 28, background: '#E31837', borderRadius: 6,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontWeight: 800, fontSize: 12,
+                }}>R</div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>
+                  Get Approved in 15 Minutes
+                </span>
+              </div>
+              <button
+                onClick={() => setShowMortgageAgent(false)}
+                style={{
+                  background: 'none', border: '1px solid #E5E7EB',
+                  borderRadius: 8, padding: '6px 14px', fontSize: 13,
+                  fontWeight: 600, cursor: 'pointer', fontFamily: theme.font,
+                  color: '#555', minHeight: 36,
+                }}
+              >
+                ✕ Close
+              </button>
+            </div>
+            {/* Mortgage Agent iframe */}
+            <iframe
+              src="/mortgage-agent.html"
+              style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }}
+              title="Mortgage Application"
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }

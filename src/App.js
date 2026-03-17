@@ -784,7 +784,7 @@ function buildCallToAction() {
   o += `🎯 **Take Action**\n\n`;
   o += `[📅 Schedule a Tour](https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ0A8_eNZZH1LljBWEEU0DIIQ7JwWNzlnFrWvGD7UB-aye3aZJRcLk9tRsMeiV1UesGVsGHQeZW6)\n`;
   o += `[📝 Submit an Offer](https://www.nationrealtor.com/submit-an-offer)\n`;
-  o += `[✅ Get Approved in 15 Minutes!](/mortgage-agent.html${mortgageParams})\n`;
+  o += `[✅ Get Approved in 15 Minutes!](/mortgage-agent.html)\n`;
   o += `[🎥 Live Stream](https://studio.restream.io/euf-vqup-uwl)\n`;
   return o;
 }

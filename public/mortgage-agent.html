@@ -243,14 +243,61 @@ function skipFile(){addUser("I'll provide later");addAgent("No problem ✓",200)
 function handleFile(e){const files=Array.from(e.target.files);if(!files.length)return;const fields=af(S.secIdx,S.data),cf=fields[S.fldIdx];S.files[cf.key]=[...(S.files[cf.key]||[]),...files];addUser('📎 '+files.map(f=>f.name).join(', '));addAgent(`Received ${files.length} file(s) ✓`,200).then(()=>{S.fldIdx++;askNext(S.secIdx,S.fldIdx,S.data);});}
 async function processInput(v){const fields=af(S.secIdx,S.data),cf=fields[S.fldIdx];addUser(v);if(cf){if((v.toLowerCase()==='skip'||v.toLowerCase()==='none')&&!cf.req){S.fldIdx++;setTimeout(()=>askNext(S.secIdx,S.fldIdx,S.data),300);return;}S.data[cf.key]=v;const disp=cf.sensitive?'•••••'+v.slice(-4):v;await addAgent(`**${cf.label}**: ${disp} ✓`,200,cf.key);const naf=af(S.secIdx,S.data),nfi=S.fldIdx+1;if(nfi<naf.length){S.fldIdx=nfi;setTimeout(()=>askNext(S.secIdx,nfi,S.data),300);}else{const nsi=S.secIdx+1;if(nsi<SECTIONS.length){const ns=SECTIONS[nsi];if(ns.review){await addAgent("Review your application and submit when ready.");S.secIdx=nsi;render();}else{await addAgent(`Moving to **${ns.icon} ${ns.title}**...`,300);S.secIdx=nsi;S.fldIdx=0;render();setTimeout(()=>askNext(nsi,0,S.data),600);}}}}}
 async function submitApp(){S.submitting=true;render();await addAgent("⚡ Submitting to LendingPad...");
-/* ═══ PRODUCTION: Replace with Zapier webhook POST ═══
+try{
 const isJoint=S.data.creditType==='Joint (Co-Borrower)';
 const coAddr=S.data.coSameAddress==='Yes';
-const payload={borrowerFirstName:S.data.firstName,borrowerLastName:S.data.lastName,borrowerEmail:S.data.email,borrowerMobilePhone:S.data.cellPhone,borrowerSsn:S.data.ssn,borrowerBirthDate:S.data.dob,borrowerCurrentAddressStreet:S.data.currentStreet,borrowerCurrentAddressCity:S.data.currentCity,borrowerCurrentAddressState:S.data.currentState,borrowerCurrentAddressZipCode:S.data.currentZip,purpose:S.data.loanPurpose,loanType:S.data.financingType,loanAmount:S.data.loanAmount,purchasePrice:S.data.propertyValue,occupancy:S.data.occupancy,propertyType:S.data.propertyType,units:S.data.numUnits,subjectPropertyAddressStreet:S.data.propertyStreet,subjectPropertyAddressCity:S.data.propertyCity,subjectPropertyAddressState:S.data.propertyState,subjectPropertyAddressZipCode:S.data.propertyZip,loanOfficerEmail:'gdifazio@nexalending.com',loanOfficerNmlsId:'1913560',note:'Submitted via Realty AI'+(isJoint?' — Joint Application':'')};
-if(isJoint){payload.coBorrowerFirstName=S.data.coFirstName;payload.coBorrowerLastName=S.data.coLastName;payload.coBorrowerEmail=S.data.coEmail;payload.coBorrowerSsn=S.data.coSsn;payload.coBorrowerBirthDate=S.data.coDob;payload.coBorrowerMobilePhone=S.data.coCellPhone;payload.coBorrowerCurrentAddressStreet=coAddr?S.data.currentStreet:S.data.coCurrentStreet;payload.coBorrowerCurrentAddressCity=coAddr?S.data.currentCity:S.data.coCurrentCity;payload.coBorrowerCurrentAddressState=coAddr?S.data.currentState:S.data.coCurrentState;payload.coBorrowerCurrentAddressZipCode=coAddr?S.data.currentZip:S.data.coCurrentZip;}
-const res = await fetch('YOUR_ZAPIER_WEBHOOK_URL',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-*/
-await new Promise(r=>setTimeout(r,2500));const ln='N'+Date.now().toString().slice(-6);S.result={ln};S.submitted=true;S.submitting=false;await addAgent(`🎉 **Application Submitted!**\n\nLoan **#${ln}** created in LendingPad.\n\nReviewing against **250+ lenders** for the best rate. Expect a call within 15 minutes.`);}
+const payload={
+  borrowerFirstName:S.data.firstName,
+  borrowerLastName:S.data.lastName,
+  borrowerEmail:S.data.email,
+  borrowerMobilePhone:S.data.cellPhone,
+  borrowerSsn:S.data.ssn,
+  borrowerBirthDate:S.data.dob,
+  borrowerCurrentAddressStreet:S.data.currentStreet,
+  borrowerCurrentAddressCity:S.data.currentCity,
+  borrowerCurrentAddressState:S.data.currentState,
+  borrowerCurrentAddressZipCode:S.data.currentZip,
+  purpose:S.data.loanPurpose,
+  loanType:S.data.financingType,
+  loanAmount:S.data.loanAmount,
+  purchasePrice:S.data.propertyValue,
+  occupancy:S.data.occupancy,
+  propertyType:S.data.propertyType,
+  units:S.data.numUnits,
+  subjectPropertyAddressStreet:S.data.propertyStreet,
+  subjectPropertyAddressCity:S.data.propertyCity,
+  subjectPropertyAddressState:S.data.propertyState,
+  subjectPropertyAddressZipCode:S.data.propertyZip,
+  loanOfficerEmail:'gdifazio@nexalending.com',
+  loanOfficerNmlsId:'1913560',
+  note:'Submitted via Realty AI Mortgage Agent'+(isJoint?' — Joint Application':''),
+  isJoint:isJoint?'true':'false'
+};
+if(isJoint){
+  payload.coBorrowerFirstName=S.data.coFirstName;
+  payload.coBorrowerLastName=S.data.coLastName;
+  payload.coBorrowerEmail=S.data.coEmail;
+  payload.coBorrowerSsn=S.data.coSsn;
+  payload.coBorrowerBirthDate=S.data.coDob;
+  payload.coBorrowerMobilePhone=S.data.coCellPhone;
+  payload.coBorrowerCurrentAddressStreet=coAddr?S.data.currentStreet:S.data.coCurrentStreet;
+  payload.coBorrowerCurrentAddressCity=coAddr?S.data.currentCity:S.data.coCurrentCity;
+  payload.coBorrowerCurrentAddressState=coAddr?S.data.currentState:S.data.coCurrentState;
+  payload.coBorrowerCurrentAddressZipCode=coAddr?S.data.currentZip:S.data.coCurrentZip;
+}
+const params=new URLSearchParams(payload);
+const res=await fetch('https://hooks.zapier.com/hooks/catch/23175236/up1kjr5/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()});
+if(!res.ok)throw new Error('Webhook failed: '+res.status);
+const result=await res.json().catch(()=>({}));
+const ln=result.id||('RA'+Date.now().toString().slice(-6));
+S.result={ln};S.submitted=true;S.submitting=false;
+await addAgent(`🎉 **Application Submitted!**\n\nLoan **#${ln}** created in LendingPad.\n\nReviewing against **250+ lenders** for the best rate. Expect a call within 15 minutes.`);
+}catch(err){
+console.error('Submit error:',err);
+S.submitting=false;
+await addAgent(`⚠️ There was an issue submitting. Please try again or contact your loan officer directly at ${LO.phone}.`);
+render();
+}}
 function toggleSB(){S.sidebarOpen=!S.sidebarOpen;render();}
 function navBack(){if(document.referrer)window.location.href=document.referrer;else window.location.href='https://realtyai.netlify.app';}
 // ═══ INIT — Straight to first question ═══

@@ -42,6 +42,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg-subtle);color:var(--tex
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 @media(max-width:768px){.sidebar{position:fixed;z-index:100;height:100vh;width:0;overflow:hidden}.sidebar.show-mobile{width:280px}.bubble{max-width:88%!important}.rg,.highlight-grid{grid-template-columns:1fr}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 </head>
 <body>
 <div class="app" id="app"></div>
@@ -249,6 +250,51 @@ async function submitApp(){S.submitting=true;render();await addAgent("⚡ Submit
 try{
 const isJoint=S.data.creditType==='Joint (Co-Borrower)';
 const coAddr=S.data.coSameAddress==='Yes';
+// ═══ Build rich note with employment, income, assets, liabilities ═══
+let noteLines=['Submitted via Realty AI Mortgage Agent'+(isJoint?' — JOINT APPLICATION':'')];
+noteLines.push('');
+noteLines.push('═══ BORROWER EMPLOYMENT ═══');
+if(S.data.employerName)noteLines.push('Employer: '+S.data.employerName);
+if(S.data.jobTitle)noteLines.push('Position: '+S.data.jobTitle);
+if(S.data.yearsInLine)noteLines.push('Years in field: '+S.data.yearsInLine);
+if(S.data.isSelfEmployed)noteLines.push('Self-employed: '+S.data.isSelfEmployed);
+noteLines.push('');
+noteLines.push('═══ BORROWER INCOME ═══');
+if(S.data.monthlyBase)noteLines.push('Monthly base: $'+S.data.monthlyBase);
+if(S.data.monthlyOvertime&&S.data.monthlyOvertime!=='skip')noteLines.push('Overtime: $'+S.data.monthlyOvertime);
+if(S.data.monthlyBonus&&S.data.monthlyBonus!=='skip')noteLines.push('Bonus: $'+S.data.monthlyBonus);
+if(S.data.monthlyCommission&&S.data.monthlyCommission!=='skip')noteLines.push('Commission: $'+S.data.monthlyCommission);
+noteLines.push('');
+noteLines.push('═══ ASSETS ═══');
+if(S.data.assetType1)noteLines.push('Account: '+S.data.assetType1+(S.data.assetInstitution1?' at '+S.data.assetInstitution1:''));
+if(S.data.assetValue1)noteLines.push('Balance: $'+S.data.assetValue1);
+noteLines.push('');
+noteLines.push('═══ LIABILITIES ═══');
+if(S.data.hasLiabilities==='No')noteLines.push('No debts reported');
+if(S.data.hasLiabilities==='Yes'){
+  if(S.data.liabType1)noteLines.push('Debt type: '+S.data.liabType1);
+  if(S.data.liabCompany1)noteLines.push('Creditor: '+S.data.liabCompany1);
+  if(S.data.liabBalance1)noteLines.push('Balance: $'+S.data.liabBalance1);
+  if(S.data.liabPayment1)noteLines.push('Monthly payment: $'+S.data.liabPayment1);
+}
+noteLines.push('');
+noteLines.push('═══ DECLARATIONS ═══');
+if(S.data.willOccupy)noteLines.push('Primary residence: '+S.data.willOccupy);
+if(S.data.judgments)noteLines.push('Outstanding judgments: '+S.data.judgments);
+if(S.data.foreclosure)noteLines.push('Foreclosure (7yr): '+S.data.foreclosure);
+if(S.data.bankruptcy)noteLines.push('Bankruptcy (7yr): '+S.data.bankruptcy);
+if(S.data.milService)noteLines.push('Military service: '+S.data.milService);
+if(isJoint){
+  noteLines.push('');
+  noteLines.push('═══ CO-BORROWER EMPLOYMENT ═══');
+  if(S.data.coEmployerName)noteLines.push('Employer: '+S.data.coEmployerName);
+  if(S.data.coJobTitle)noteLines.push('Position: '+S.data.coJobTitle);
+  if(S.data.coYearsInLine)noteLines.push('Years in field: '+S.data.coYearsInLine);
+  if(S.data.coIsSelfEmployed)noteLines.push('Self-employed: '+S.data.coIsSelfEmployed);
+  if(S.data.coMonthlyBase)noteLines.push('Monthly base: $'+S.data.coMonthlyBase);
+  if(S.data.coMonthlyOvertime&&S.data.coMonthlyOvertime!=='skip')noteLines.push('Overtime: $'+S.data.coMonthlyOvertime);
+}
+const richNote=noteLines.join('\n');
 const payload={
   borrowerFirstName:S.data.firstName,
   borrowerLastName:S.data.lastName,
@@ -273,7 +319,7 @@ const payload={
   subjectPropertyAddressZipCode:S.data.propertyZip,
   loanOfficerEmail:'gdifazio@nexalending.com',
   loanOfficerNmlsId:'1913560',
-  note:'Submitted via Realty AI Mortgage Agent'+(isJoint?' — Joint Application':''),
+  note:richNote,
   isJoint:isJoint?'true':'false'
 };
 if(isJoint){
@@ -293,6 +339,8 @@ const res=await fetch('https://hooks.zapier.com/hooks/catch/23175236/up1kjr5/',{
 if(!res.ok)throw new Error('Webhook failed: '+res.status);
 const result=await res.json().catch(()=>({}));
 const ln=result.id||('RA'+Date.now().toString().slice(-6));
+// ═══ Send documents via EmailJS ═══
+await sendDocsEmail(ln,isJoint);
 S.result={ln};S.submitted=true;S.submitting=false;
 await addAgent(`🎉 **Application Submitted!**\n\nLoan **#${ln}** created in LendingPad.\n\nReviewing against **250+ lenders** for the best rate. Expect a call within 15 minutes.`);
 }catch(err){
@@ -301,6 +349,56 @@ S.submitting=false;
 await addAgent(`⚠️ There was an issue submitting. Please try again or contact your loan officer directly at ${LO.phone}.`);
 render();
 }}
+// ═══ EMAIL DOCUMENTS VIA EMAILJS ═══
+async function sendDocsEmail(loanId,isJoint){
+  try{
+    emailjs.init('xElMdZFRvZqh8-bIw');
+    // Collect all uploaded file names
+    const allFiles=Object.entries(S.files);
+    if(allFiles.length===0)return; // No docs uploaded, skip
+    let docList='';
+    const borrowerDocs=[];
+    const coBorrowerDocs=[];
+    allFiles.forEach(([key,files])=>{
+      files.forEach(f=>{
+        if(key.startsWith('co')){
+          coBorrowerDocs.push(f.name);
+        }else{
+          borrowerDocs.push(f.name);
+        }
+      });
+    });
+    if(borrowerDocs.length>0){
+      docList+='BORROWER DOCUMENTS ('+S.data.firstName+' '+S.data.lastName+'):\n';
+      borrowerDocs.forEach(n=>{docList+='  • '+n+'\n';});
+    }
+    if(coBorrowerDocs.length>0){
+      docList+='\nCO-BORROWER DOCUMENTS ('+(S.data.coFirstName||'')+' '+(S.data.coLastName||'')+'):\n';
+      coBorrowerDocs.forEach(n=>{docList+='  • '+n+'\n';});
+    }
+    // Build email body
+    const emailBody=`NEW MORTGAGE APPLICATION — DOCUMENTS UPLOADED\n\n`+
+      `Loan ID: ${loanId}\n`+
+      `Borrower: ${S.data.firstName} ${S.data.lastName}\n`+
+      `Email: ${S.data.email}\n`+
+      `Phone: ${S.data.cellPhone}\n`+
+      (isJoint?`Co-Borrower: ${S.data.coFirstName} ${S.data.coLastName}\n`:'')+
+      `\n${docList}\n`+
+      `NOTE: Documents were uploaded in-browser. Please follow up with the borrower to collect them via email or your secure upload portal.\n`+
+      `\nProperty: ${S.data.propertyStreet||'N/A'}, ${S.data.propertyCity||''} ${S.data.propertyState||''} ${S.data.propertyZip||''}\n`+
+      `Purchase Price: $${Number(S.data.propertyValue||0).toLocaleString()}\n`+
+      `Loan Amount: $${Number(S.data.loanAmount||0).toLocaleString()}\n`;
+    await emailjs.send('service_rh6uozl','template_b6xnvkj',{
+      email:'gdifazio@nexalending.com',
+      to_name:'Giancarlo',
+      verification_code:emailBody,
+    });
+    console.log('Document notification email sent');
+  }catch(e){
+    console.error('EmailJS doc notification failed:',e);
+    // Non-blocking — loan still submitted successfully
+  }
+}
 function toggleSB(){S.sidebarOpen=!S.sidebarOpen;render();}
 function navBack(){if(document.referrer)window.location.href=document.referrer;else window.location.href='https://realtyai.netlify.app';}
 // ═══ INIT — Straight to first question ═══

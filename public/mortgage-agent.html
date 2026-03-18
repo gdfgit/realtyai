@@ -355,48 +355,86 @@ async function sendDocsEmail(loanId,isJoint){
     emailjs.init('xElMdZFRvZqh8-bIw');
     // Collect all uploaded file names
     const allFiles=Object.entries(S.files);
-    if(allFiles.length===0)return; // No docs uploaded, skip
-    let docList='';
-    const borrowerDocs=[];
-    const coBorrowerDocs=[];
-    allFiles.forEach(([key,files])=>{
-      files.forEach(f=>{
-        if(key.startsWith('co')){
-          coBorrowerDocs.push(f.name);
-        }else{
-          borrowerDocs.push(f.name);
-        }
+    // Build document list
+    let docList='No documents uploaded — follow up with borrower.';
+    if(allFiles.length>0){
+      const borrowerDocs=[];
+      const coBorrowerDocs=[];
+      allFiles.forEach(([key,files])=>{
+        files.forEach(f=>{
+          if(key.startsWith('co')){coBorrowerDocs.push(f.name);}
+          else{borrowerDocs.push(f.name);}
+        });
       });
-    });
-    if(borrowerDocs.length>0){
-      docList+='BORROWER DOCUMENTS ('+S.data.firstName+' '+S.data.lastName+'):\n';
-      borrowerDocs.forEach(n=>{docList+='  • '+n+'\n';});
+      docList='';
+      if(borrowerDocs.length>0){
+        docList+='BORROWER ('+S.data.firstName+' '+S.data.lastName+'):\n';
+        borrowerDocs.forEach(n=>{docList+='  • '+n+'\n';});
+      }
+      if(coBorrowerDocs.length>0){
+        docList+='\nCO-BORROWER ('+(S.data.coFirstName||'')+' '+(S.data.coLastName||'')+'):\n';
+        coBorrowerDocs.forEach(n=>{docList+='  • '+n+'\n';});
+      }
     }
-    if(coBorrowerDocs.length>0){
-      docList+='\nCO-BORROWER DOCUMENTS ('+(S.data.coFirstName||'')+' '+(S.data.coLastName||'')+'):\n';
-      coBorrowerDocs.forEach(n=>{docList+='  • '+n+'\n';});
+    // Build employment details
+    let empDetails='';
+    empDetails+='Employer: '+(S.data.employerName||'N/A')+'\n';
+    empDetails+='Position: '+(S.data.jobTitle||'N/A')+'\n';
+    empDetails+='Years in field: '+(S.data.yearsInLine||'N/A')+'\n';
+    empDetails+='Self-employed: '+(S.data.isSelfEmployed||'N/A')+'\n';
+    empDetails+='Monthly base: $'+(S.data.monthlyBase||'0')+'\n';
+    if(S.data.monthlyOvertime&&S.data.monthlyOvertime!=='skip')empDetails+='Overtime: $'+S.data.monthlyOvertime+'\n';
+    if(S.data.monthlyBonus&&S.data.monthlyBonus!=='skip')empDetails+='Bonus: $'+S.data.monthlyBonus+'\n';
+    if(S.data.monthlyCommission&&S.data.monthlyCommission!=='skip')empDetails+='Commission: $'+S.data.monthlyCommission+'\n';
+    if(isJoint){
+      empDetails+='\nCO-BORROWER EMPLOYMENT:\n';
+      empDetails+='Employer: '+(S.data.coEmployerName||'N/A')+'\n';
+      empDetails+='Position: '+(S.data.coJobTitle||'N/A')+'\n';
+      empDetails+='Years in field: '+(S.data.coYearsInLine||'N/A')+'\n';
+      empDetails+='Self-employed: '+(S.data.coIsSelfEmployed||'N/A')+'\n';
+      empDetails+='Monthly base: $'+(S.data.coMonthlyBase||'0')+'\n';
     }
-    // Build email body
-    const emailBody=`NEW MORTGAGE APPLICATION — DOCUMENTS UPLOADED\n\n`+
-      `Loan ID: ${loanId}\n`+
-      `Borrower: ${S.data.firstName} ${S.data.lastName}\n`+
-      `Email: ${S.data.email}\n`+
-      `Phone: ${S.data.cellPhone}\n`+
-      (isJoint?`Co-Borrower: ${S.data.coFirstName} ${S.data.coLastName}\n`:'')+
-      `\n${docList}\n`+
-      `NOTE: Documents were uploaded in-browser. Please follow up with the borrower to collect them via email or your secure upload portal.\n`+
-      `\nProperty: ${S.data.propertyStreet||'N/A'}, ${S.data.propertyCity||''} ${S.data.propertyState||''} ${S.data.propertyZip||''}\n`+
-      `Purchase Price: $${Number(S.data.propertyValue||0).toLocaleString()}\n`+
-      `Loan Amount: $${Number(S.data.loanAmount||0).toLocaleString()}\n`;
-    await emailjs.send('service_rh6uozl','template_b6xnvkj',{
-      email:'gdifazio@nexalending.com',
-      to_name:'Giancarlo',
-      verification_code:emailBody,
+    // Build financial details (assets & liabilities)
+    let finDetails='';
+    finDetails+='ASSETS:\n';
+    finDetails+='Account: '+(S.data.assetType1||'N/A')+(S.data.assetInstitution1?' at '+S.data.assetInstitution1:'')+'\n';
+    finDetails+='Balance: $'+(S.data.assetValue1||'0')+'\n';
+    finDetails+='\nLIABILITIES:\n';
+    if(S.data.hasLiabilities==='No'){finDetails+='No debts reported\n';}
+    else{
+      finDetails+='Debt type: '+(S.data.liabType1||'N/A')+'\n';
+      finDetails+='Creditor: '+(S.data.liabCompany1||'N/A')+'\n';
+      finDetails+='Balance: $'+(S.data.liabBalance1||'0')+'\n';
+      finDetails+='Monthly payment: $'+(S.data.liabPayment1||'0')+'\n';
+    }
+    finDetails+='\nDECLARATIONS:\n';
+    finDetails+='Primary residence: '+(S.data.willOccupy||'N/A')+'\n';
+    finDetails+='Judgments: '+(S.data.judgments||'N/A')+'\n';
+    finDetails+='Foreclosure (7yr): '+(S.data.foreclosure||'N/A')+'\n';
+    finDetails+='Bankruptcy (7yr): '+(S.data.bankruptcy||'N/A')+'\n';
+    finDetails+='Military service: '+(S.data.milService||'N/A')+'\n';
+    // Build loan details
+    let loanDetails='';
+    loanDetails+='Property: '+(S.data.propertyStreet||'TBD')+', '+(S.data.propertyCity||'')+' '+(S.data.propertyState||'')+' '+(S.data.propertyZip||'')+'\n';
+    loanDetails+='Purchase Price: $'+Number(S.data.propertyValue||0).toLocaleString()+'\n';
+    loanDetails+='Loan Amount: $'+Number(S.data.loanAmount||0).toLocaleString()+'\n';
+    loanDetails+='Loan Type: '+(S.data.financingType||'N/A')+'\n';
+    loanDetails+='Occupancy: '+(S.data.occupancy||'N/A')+'\n';
+    loanDetails+='Property Type: '+(S.data.propertyType||'N/A')+'\n';
+    await emailjs.send('service_rh6uozl','template_xipoao8',{
+      loan_id:loanId,
+      borrower_name:S.data.firstName+' '+S.data.lastName,
+      borrower_email:S.data.email,
+      borrower_phone:S.data.cellPhone,
+      co_borrower_line:isJoint?'Co-Borrower: '+S.data.coFirstName+' '+S.data.coLastName+' | '+S.data.coEmail+' | '+S.data.coCellPhone:'Individual Application (no co-borrower)',
+      document_list:docList,
+      loan_details:loanDetails,
+      employment_details:empDetails,
+      financial_details:finDetails,
     });
     console.log('Document notification email sent');
   }catch(e){
     console.error('EmailJS doc notification failed:',e);
-    // Non-blocking — loan still submitted successfully
   }
 }
 function toggleSB(){S.sidebarOpen=!S.sidebarOpen;render();}

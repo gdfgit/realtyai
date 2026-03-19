@@ -397,6 +397,10 @@ if(isJoint){
   payload.coBorrowerCurrentAddressCity=coAddr?S.data.currentCity:S.data.coCurrentCity;
   payload.coBorrowerCurrentAddressState=coAddr?S.data.currentState:S.data.coCurrentState;
   payload.coBorrowerCurrentAddressZipCode=coAddr?S.data.currentZip:S.data.coCurrentZip;
+} else {
+  // Individual — send N/A placeholders so Zapier mapped fields don't error
+  payload.coBorrowerFirstName='N/A';
+  payload.coBorrowerLastName='N/A';
 }
 const params=new URLSearchParams(payload);
 const res=await fetch('https://hooks.zapier.com/hooks/catch/23175236/up1kjr5/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()});

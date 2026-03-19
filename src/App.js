@@ -807,6 +807,17 @@ export default function RealtyAI() {
     return () => document.removeEventListener('click', handleClick);
   }, []);
 
+  // Listen for close message from Mortgage Agent iframe
+  useEffect(() => {
+    const handleMessage = (e) => {
+      if (e.data === 'closeMortgageAgent') {
+        setShowMortgageAgent(false);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
   const handleSend = async () => {
     const text = input.trim();
     if (!text && attachments.length === 0) return;

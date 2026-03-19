@@ -31,7 +31,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg-subtle);color:var(--tex
 .sel-opts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}.opt-btn{padding:8px 16px;border-radius:20px;border:1px solid var(--red-border);background:var(--red-bg);color:var(--red);font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .2s}.opt-btn:hover{background:var(--red);color:#fff;border-color:var(--red)}
 .input-row{display:flex;gap:10px}.chat-input{flex:1;padding:13px 16px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;outline:none;font-family:inherit;transition:all .2s}.chat-input:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(192,57,43,.08)}.chat-input::placeholder{color:#bbb}
 .send-btn{padding:13px 22px;border-radius:10px;border:none;background:var(--border-light);color:#bbb;font-size:14px;font-weight:700;cursor:default;font-family:inherit;transition:all .2s}.send-btn.active{background:var(--red);color:#fff;cursor:pointer}.send-btn.active:hover{background:var(--red-light)}
-.mic-btn{padding:13px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text-light);font-size:16px;cursor:pointer;font-family:inherit;transition:all .2s;display:flex;align-items:center;justify-content:center;min-width:46px}.mic-btn:hover{border-color:var(--red);color:var(--red)}.mic-btn.listening{background:var(--red);color:#fff;border-color:var(--red);animation:pulse 1s infinite}
+.mic-btn{width:48px;height:48px;border-radius:50%;border:none;background:#E31837;color:#fff;font-size:20px;cursor:pointer;font-family:inherit;transition:all .2s;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(227,24,55,.3)}.mic-btn:hover{background:#c41230;box-shadow:0 4px 14px rgba(227,24,55,.4)}.mic-btn.listening{animation:micPulse 1.2s infinite;box-shadow:0 0 0 8px rgba(227,24,55,.15)}
+@keyframes micPulse{0%{box-shadow:0 0 0 0 rgba(227,24,55,.4)}70%{box-shadow:0 0 0 14px rgba(227,24,55,0)}100%{box-shadow:0 0 0 0 rgba(227,24,55,0)}}
 .skip-btn{padding:13px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text-light);font-size:12px;cursor:pointer;font-family:inherit;font-weight:500}.skip-btn:hover{border-color:var(--red-border);color:var(--red)}
 .file-row{display:flex;gap:10px}.upload-btn{flex:1;padding:14px;border-radius:10px;border:2px dashed var(--red-border);background:var(--red-bg);color:var(--red);font-size:14px;cursor:pointer;font-weight:600;font-family:inherit}.upload-btn:hover{background:rgba(192,57,43,.12);border-color:var(--red)}.file-skip-btn{padding:14px 18px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text-light);font-size:13px;cursor:pointer;font-family:inherit}
 .disclaimer{font-size:11px;color:var(--text-light);margin-top:10px;text-align:center;line-height:1.4}
@@ -170,7 +171,7 @@ function render(){
   const sec=SECTIONS[S.secIdx],fields=af(S.secIdx,S.data),cf=fields[S.fldIdx],p=pct(),isReview=sec?.review,isSelect=cf?.type==='select',isFile=cf?.type==='file',hasProp=P.address||P.price;
   const isMobile=window.innerWidth<=768;
   const sidebarClass=isMobile?(S.sidebarOpen?'sidebar show-mobile':'sidebar'):(S.sidebarOpen?'sidebar':'sidebar collapsed');
-  document.getElementById('app').innerHTML=`<div class="${sidebarClass}"><button class="sidebar-back" onclick="navBack()">← Back to Realty AI</button><div class="s-brand"><div class="logo"><div class="logo-icon"><img src="/logo.png" alt="Realty AI"/></div><div class="logo-text">Realty <span>AI</span></div></div><h2>Mortgage Application</h2><div class="sub">Uniform Residential Loan Application</div><div class="badge-15">⚡ Get Approved!</div></div><div class="prog"><div class="row"><span>Progress</span><span>${p}%</span></div><div class="prog-track"><div class="prog-fill" style="width:${p}%"></div></div></div><div class="nav">${SECTIONS.filter(s=>!s.greeting).map((s,i)=>{const ri=i+1,cls=S.secIdx===ri?'active':S.secIdx>ri?'complete':'pending';return`<div class="nav-item ${cls}"><span class="ic">${S.secIdx>ri?'✓':s.icon}</span><span>${s.title}</span></div>`;}).join('')}</div><div class="lo"><div class="t">Your Loan Officer</div><div><strong>${LO.name}</strong></div><div>NMLS# ${LO.nmls} • ${LO.orgName}</div><div>${LO.email}</div><div>${LO.phone}</div></div></div><div class="main"><div class="topbar"><div class="topbar-left"><button class="menu-btn" onclick="toggleSB()">☰</button><div><div class="topbar-title">${sec?.icon||''} ${sec?.title||''}</div><div class="topbar-sub">Section ${S.secIdx} of ${SECTIONS.length-1}</div></div></div><div class="topbar-badge">${p}% Complete</div></div><div class="chat" id="chatArea">${hasProp&&S.msgs.length<=1?`<div class="prop-banner"><div class="prop-icon">🏠</div><div class="prop-info"><strong>${P.address||'Selected Property'}</strong>${P.price?'$'+Number(P.price).toLocaleString():''} ${P.city?'• '+P.city+', '+P.state:''}</div></div>`:''}${S.msgs.map((m,i)=>renderMsg(m,i)).join('')}${S.typing?`<div class="typing-wrap"><div class="typing-b"><div class="td"></div><div class="td"></div><div class="td"></div></div></div>`:''}${isReview&&!S.submitted?renderReview():''}${S.submitted?renderSuccess():''}</div>${!isReview&&!S.submitted?`<div class="input-area">${isSelect&&cf?.opts?`<div class="sel-opts">${cf.opts.map(o=>`<button class="opt-btn" onclick="selOpt('${o.replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>`:''}${isFile?`<div class="file-row"><button class="upload-btn" onclick="document.getElementById('fInp').click()">📎 Upload Files</button><button class="file-skip-btn" onclick="skipFile()">Provide Later</button></div><input type="file" id="fInp" style="display:none" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="handleFile(event)"/>`:`<div class="input-row"><input class="chat-input" id="inp" type="${cf?.type==='ssn'?'password':'text'}" placeholder="${cf?'Type or tap 🎤 to speak...':'Type...'}" onkeydown="if(event.key==='Enter')send()"/><button class="mic-btn ${S.listening?'listening':''}" id="micBtn" onclick="toggleMic()" title="Voice input">${S.listening?'⏹️':'🎤'}</button><button class="send-btn" id="sendBtn" onclick="send()">Send</button>${cf&&!cf.req?'<button class="skip-btn" onclick="skip()">Skip</button>':''}</div>`}<div class="disclaimer">🔒 Encrypted & secure. By proceeding you consent to a credit inquiry.</div></div>`:''}</div>`;
+  document.getElementById('app').innerHTML=`<div class="${sidebarClass}"><button class="sidebar-back" onclick="navBack()">← Back to Realty AI</button><div class="s-brand"><div class="logo"><div class="logo-icon"><img src="/logo.png" alt="Realty AI"/></div><div class="logo-text">Realty <span>AI</span></div></div><h2>Mortgage Application</h2><div class="sub">Uniform Residential Loan Application</div><div class="badge-15">⚡ Get Approved!</div></div><div class="prog"><div class="row"><span>Progress</span><span>${p}%</span></div><div class="prog-track"><div class="prog-fill" style="width:${p}%"></div></div></div><div class="nav">${SECTIONS.filter(s=>!s.greeting).map((s,i)=>{const ri=i+1,cls=S.secIdx===ri?'active':S.secIdx>ri?'complete':'pending';return`<div class="nav-item ${cls}"><span class="ic">${S.secIdx>ri?'✓':s.icon}</span><span>${s.title}</span></div>`;}).join('')}</div><div class="lo"><div class="t">Your Loan Officer</div><div><strong>${LO.name}</strong></div><div>NMLS# ${LO.nmls} • ${LO.orgName}</div><div>${LO.email}</div><div>${LO.phone}</div></div></div><div class="main"><div class="topbar"><div class="topbar-left"><button class="menu-btn" onclick="toggleSB()">☰</button><div><div class="topbar-title">${sec?.icon||''} ${sec?.title||''}</div><div class="topbar-sub">Section ${S.secIdx} of ${SECTIONS.length-1}</div></div></div><div class="topbar-badge">${p}% Complete</div></div><div class="chat" id="chatArea">${hasProp&&S.msgs.length<=1?`<div class="prop-banner"><div class="prop-icon">🏠</div><div class="prop-info"><strong>${P.address||'Selected Property'}</strong>${P.price?'$'+Number(P.price).toLocaleString():''} ${P.city?'• '+P.city+', '+P.state:''}</div></div>`:''}${S.msgs.map((m,i)=>renderMsg(m,i)).join('')}${S.typing?`<div class="typing-wrap"><div class="typing-b"><div class="td"></div><div class="td"></div><div class="td"></div></div></div>`:''}${isReview&&!S.submitted?renderReview():''}${S.submitted?renderSuccess():''}</div>${!isReview&&!S.submitted?`<div class="input-area">${isSelect&&cf?.opts?`<div class="sel-opts">${cf.opts.map(o=>`<button class="opt-btn" onclick="selOpt('${o.replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>`:''}${isFile?`<div class="file-row"><button class="upload-btn" onclick="document.getElementById('fInp').click()">📎 Upload Files</button><button class="file-skip-btn" onclick="skipFile()">Provide Later</button></div><input type="file" id="fInp" style="display:none" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="handleFile(event)"/>`:`<div class="input-row"><input class="chat-input" id="inp" type="${cf?.type==='ssn'?'password':'text'}" placeholder="${cf?'Type your '+cf.label.toLowerCase()+'...':'Type...'}" onkeydown="if(event.key==='Enter')send()"/><button class="send-btn" id="sendBtn" onclick="send()">Send</button>${cf&&!cf.req?'<button class="skip-btn" onclick="skip()">Skip</button>':''}</div><div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px"><button class="mic-btn ${S.listening?'listening':''}" onclick="toggleMic()" title="${S.listening?'Stop listening':'Tap to speak'}"><svg width="22" height="22" fill="none" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#fff"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M12 19v4m-4 0h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></button><span style="font-size:11px;color:${S.listening?'var(--red)':'var(--text-light)'};font-weight:${S.listening?'600':'400'}">${S.listening?'Listening... tap to stop':'or tap to speak'}</span></div>`}<div class="disclaimer">🔒 Encrypted & secure. By proceeding you consent to a credit inquiry.</div></div>`:''}</div>`;
   const ca=document.getElementById('chatArea');if(ca)ca.scrollTop=ca.scrollHeight;const inp=document.getElementById('inp');if(inp){inp.focus();inp.addEventListener('input',()=>{const b=document.getElementById('sendBtn');if(b){inp.value.trim()?b.classList.add('active'):b.classList.remove('active');}});}
 }
 function renderReview(){let h='<div class="review-card"><h3>📋 Application Summary</h3><div class="highlight-box"><div class="highlight-grid"><div><div class="hl">Purchase Price</div><div class="hv price">$'+Number(S.data.propertyValue||0).toLocaleString()+'</div></div><div><div class="hl">Loan Amount</div><div class="hv">$'+Number(S.data.loanAmount||0).toLocaleString()+'</div></div><div><div class="hl">Loan Type</div><div class="hv">'+(S.data.financingType||'—')+'</div></div><div><div class="hl">Occupancy</div><div class="hv">'+(S.data.occupancy||'—')+'</div></div></div></div>';SECTIONS.filter(s=>!s.greeting&&!s.review&&s.fields.length).forEach(sec=>{const filled=sec.fields.filter(f=>f.type!=='computed'&&f.type!=='notice'&&f.type!=='file'&&S.data[f.key]);if(!filled.length)return;h+='<div class="rs-title">'+sec.icon+' '+sec.title+'</div><div class="rg">';filled.forEach(f=>{const v=f.sensitive?'•••••'+S.data[f.key].slice(-4):S.data[f.key];h+='<div class="rf"><span class="l">'+f.label+': </span><span class="v">'+v+'</span></div>';});h+='</div>';});h+='<div class="rs-title">🏦 Loan Officer</div><div style="font-size:13px;color:var(--text-mid);margin-bottom:24px">'+LO.name+' • NMLS# '+LO.nmls+'<br/>'+LO.orgName+' • '+LO.email+'</div>';h+='<button class="submit-btn" '+(S.submitting?'disabled':'')+' onclick="submitApp()"><span class="shimmer"></span>'+(S.submitting?'⏳ Submitting to LendingPad...':'⚡ Submit — Get Approved!')+'</button></div>';return h;}
@@ -247,7 +248,7 @@ function toggleMic(){
     return;
   }
   if(S.listening){
-    if(recognition)recognition.stop();
+    if(recognition){recognition.stop();recognition=null;}
     S.listening=false;
     render();
     return;
@@ -257,34 +258,39 @@ function toggleMic(){
   recognition.continuous=false;
   recognition.interimResults=false;
   recognition.lang='en-US';
+  recognition.maxAlternatives=1;
   S.listening=true;
   render();
   recognition.onresult=(e)=>{
     let transcript=e.results[0][0].transcript.trim();
-    // For SSN fields, strip spaces and convert spoken numbers
+    // For SSN fields, strip everything except digits
     const fields=af(S.secIdx,S.data);
     const cf=fields[S.fldIdx];
     if(cf&&cf.type==='ssn'){
-      transcript=transcript.replace(/\s+/g,'').replace(/[^\d]/g,'');
+      transcript=transcript.replace(/[^\d]/g,'');
     }
-    // Fill the input field with the transcript
-    const inp=document.getElementById('inp');
-    if(inp){inp.value=transcript;inp.dispatchEvent(new Event('input'));}
     S.listening=false;
+    // Directly process the voice input as if user typed and hit send
+    if(transcript){
+      processInput(transcript);
+    }
+    recognition=null;
     render();
-    // Auto-focus the input so user can review before sending
-    setTimeout(()=>{const inp2=document.getElementById('inp');if(inp2)inp2.focus();},100);
   };
   recognition.onerror=(e)=>{
-    console.error('Speech recognition error:',e.error);
+    console.error('Speech error:',e.error);
     S.listening=false;
+    recognition=null;
     render();
   };
   recognition.onend=()=>{
-    S.listening=false;
-    render();
+    if(S.listening){S.listening=false;render();}
+    recognition=null;
   };
-  recognition.start();
+  try{recognition.start();}catch(e){
+    console.error('Mic start error:',e);
+    S.listening=false;render();
+  }
 }
 function selOpt(v){processInput(v);}
 function skip(){addUser('skip');S.fldIdx++;setTimeout(()=>askNext(S.secIdx,S.fldIdx,S.data),300);}

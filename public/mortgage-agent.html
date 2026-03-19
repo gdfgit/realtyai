@@ -421,7 +421,7 @@ async function sendDocsEmail(loanId,isJoint){
     loanDetails+='Loan Type: '+(S.data.financingType||'N/A')+'\n';
     loanDetails+='Occupancy: '+(S.data.occupancy||'N/A')+'\n';
     loanDetails+='Property Type: '+(S.data.propertyType||'N/A')+'\n';
-    await emailjs.send('service_rh6uozl','template_xipoao8',{
+    await emailjs.send('service_rh6uozl','template_42e9cbr',{
       loan_id:loanId,
       borrower_name:S.data.firstName+' '+S.data.lastName,
       borrower_email:S.data.email,

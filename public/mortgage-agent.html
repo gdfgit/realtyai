@@ -238,7 +238,7 @@ function saveEdit(fieldKey,msgIdx,newValue){
   }
   render();
 }
-async function askNext(si,fi,d){const fields=af(si,d);if(fi>=fields.length){const nsi=si+1;if(nsi>=SECTIONS.length){S.secIdx=SECTIONS.length-1;render();return;}const ns=SECTIONS[nsi];if(ns.review){await addAgent("Review your application and submit when ready.");S.secIdx=nsi;render();return;}// Check if next section has any active fields — if not, skip it
+async function askNext(si,fi,d){const fields=af(si,d);if(fi>=fields.length){const nsi=si+1;if(nsi>=SECTIONS.length){S.secIdx=SECTIONS.length-1;render();return;}const ns=SECTIONS[nsi];if(ns.review){await addAgent("Review your application and submit when ready.");S.secIdx=nsi;render();return;}// Check if next section has any active fields — if not, skip it silently
     const nextFields=af(nsi,d);if(nextFields.length===0&&!ns.review&&!ns.greeting){S.secIdx=nsi;S.fldIdx=0;return askNext(nsi,0,d);}await addAgent(`Moving to **${ns.icon} ${ns.title}**...`,300);S.secIdx=nsi;S.fldIdx=0;render();setTimeout(()=>askNext(nsi,0,d),600);return;}const f=fields[fi];if(f.type==='notice'){await addAgent(f.msg,300);S.fldIdx=fi+1;render();setTimeout(()=>askNext(si,fi+1,d),400);return;}if(f.key==='propertyStreet'&&S.data.propertyStreet){await addAgent(`I see you're looking at **${S.data.propertyStreet}**${S.data.propertyCity?', '+S.data.propertyCity:''}${S.data.propertyValue?' — $'+Number(S.data.propertyValue).toLocaleString():''}. I've pre-filled the property details.`);let skip=fi;while(skip<fields.length&&S.data[fields[skip]?.key])skip++;if(skip>fi){S.fldIdx=skip;setTimeout(()=>askNext(si,skip,d),700);return;}}await addAgent(f.q);S.fldIdx=fi;render();}
 function send(){const inp=document.getElementById('inp');const v=inp?.value?.trim();if(!v)return;processInput(v);}
 // ═══ VOICE INPUT ═══
@@ -299,7 +299,19 @@ function handleFile(e){const files=Array.from(e.target.files);if(!files.length)r
 async function processInput(v){const fields=af(S.secIdx,S.data),cf=fields[S.fldIdx];addUser(v);if(cf){if((v.toLowerCase()==='skip'||v.toLowerCase()==='none')&&!cf.req){S.fldIdx++;setTimeout(()=>askNext(S.secIdx,S.fldIdx,S.data),300);return;}
 // SSN validation — strip dashes/spaces and enforce 9 digits
 if(cf.type==='ssn'){v=v.replace(/[\s\-]/g,'');if(!/^\d{9}$/.test(v)){await addAgent("⚠️ SSN must be exactly 9 digits (e.g. 123456789). Please try again.",300);return;}}
-S.data[cf.key]=v;const disp=cf.sensitive?'•••••'+v.slice(-4):v;await addAgent(`**${cf.label}**: ${disp} ✓`,200,cf.key);const naf=af(S.secIdx,S.data),nfi=S.fldIdx+1;if(nfi<naf.length){S.fldIdx=nfi;setTimeout(()=>askNext(S.secIdx,nfi,S.data),300);}else{const nsi=S.secIdx+1;if(nsi<SECTIONS.length){const ns=SECTIONS[nsi];if(ns.review){await addAgent("Review your application and submit when ready.");S.secIdx=nsi;render();}else{await addAgent(`Moving to **${ns.icon} ${ns.title}**...`,300);S.secIdx=nsi;S.fldIdx=0;render();setTimeout(()=>askNext(nsi,0,S.data),600);}}}}}
+S.data[cf.key]=v;const disp=cf.sensitive?'•••••'+v.slice(-4):v;await addAgent(`**${cf.label}**: ${disp} ✓`,200,cf.key);const naf=af(S.secIdx,S.data),nfi=S.fldIdx+1;if(nfi<naf.length){S.fldIdx=nfi;setTimeout(()=>askNext(S.secIdx,nfi,S.data),300);}else{
+// Move to next section — but skip any sections with no active fields
+let nsi=S.secIdx+1;
+while(nsi<SECTIONS.length){
+  const ns=SECTIONS[nsi];
+  if(ns.review){await addAgent("Review your application and submit when ready.");S.secIdx=nsi;render();break;}
+  const nextFields=af(nsi,S.data);
+  if(nextFields.length===0&&!ns.greeting){nsi++;continue;}
+  await addAgent(`Moving to **${ns.icon} ${ns.title}**...`,300);
+  S.secIdx=nsi;S.fldIdx=0;render();
+  setTimeout(()=>askNext(nsi,0,S.data),600);
+  break;
+}}}}
 async function submitApp(){S.submitting=true;render();await addAgent("⚡ Submitting to LendingPad...");
 try{
 const isJoint=S.data.creditType==='Joint (Co-Borrower)';

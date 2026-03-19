@@ -349,13 +349,21 @@ S.submitting=false;
 await addAgent(`⚠️ There was an issue submitting. Please try again or contact your loan officer directly at ${LO.phone}.`);
 render();
 }}
+// ═══ HELPER: Convert File to base64 ═══
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result.split(',')[1]);
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
 // ═══ EMAIL DOCUMENTS VIA EMAILJS ═══
 async function sendDocsEmail(loanId,isJoint){
   try{
     emailjs.init('xElMdZFRvZqh8-bIw');
-    // Collect all uploaded file names
     const allFiles=Object.entries(S.files);
-    // Build document list
+    // Build document list text
     let docList='No documents uploaded — follow up with borrower.';
     if(allFiles.length>0){
       const borrowerDocs=[];
@@ -394,7 +402,7 @@ async function sendDocsEmail(loanId,isJoint){
       empDetails+='Self-employed: '+(S.data.coIsSelfEmployed||'N/A')+'\n';
       empDetails+='Monthly base: $'+(S.data.coMonthlyBase||'0')+'\n';
     }
-    // Build financial details (assets & liabilities)
+    // Build financial details
     let finDetails='';
     finDetails+='ASSETS:\n';
     finDetails+='Account: '+(S.data.assetType1||'N/A')+(S.data.assetInstitution1?' at '+S.data.assetInstitution1:'')+'\n';
@@ -421,7 +429,23 @@ async function sendDocsEmail(loanId,isJoint){
     loanDetails+='Loan Type: '+(S.data.financingType||'N/A')+'\n';
     loanDetails+='Occupancy: '+(S.data.occupancy||'N/A')+'\n';
     loanDetails+='Property Type: '+(S.data.propertyType||'N/A')+'\n';
-    await emailjs.send('service_rh6uozl','template_42e9cbr',{
+    // ═══ Convert uploaded files to base64 for email attachment ═══
+    const attachments=[];
+    let totalSize=0;
+    for(const[key,files] of allFiles){
+      for(const file of files){
+        try{
+          const prefix=key.startsWith('co')?'CoBorrower_':'Borrower_';
+          const b64=await fileToBase64(file);
+          totalSize+=file.size;
+          if(totalSize>5000000){console.log('Attachment size limit reached, skipping remaining files');break;}
+          attachments.push({name:prefix+file.name,data:b64});
+        }catch(e){console.error('Failed to convert file:',file.name,e);}
+      }
+      if(totalSize>5000000)break;
+    }
+    // Build the EmailJS params
+    const emailParams={
       loan_id:loanId,
       borrower_name:S.data.firstName+' '+S.data.lastName,
       borrower_email:S.data.email,
@@ -431,14 +455,44 @@ async function sendDocsEmail(loanId,isJoint){
       loan_details:loanDetails,
       employment_details:empDetails,
       financial_details:finDetails,
-    });
-    console.log('Document notification email sent');
+    };
+    // Add file attachments (EmailJS supports up to 3 attachments on paid, or use content field)
+    if(attachments.length>0){
+      attachments.forEach((att,i)=>{
+        if(i<3){emailParams['attachment'+(i+1)]=att;}
+      });
+    }
+    await emailjs.send('service_rh6uozl','template_42e9cbr',emailParams);
+    console.log('Document notification email sent with '+attachments.length+' attachments');
   }catch(e){
     console.error('EmailJS doc notification failed:',e);
+    // If attachment email fails (size limit), try sending without attachments
+    try{
+      await emailjs.send('service_rh6uozl','template_42e9cbr',{
+        loan_id:loanId,
+        borrower_name:S.data.firstName+' '+S.data.lastName,
+        borrower_email:S.data.email,
+        borrower_phone:S.data.cellPhone,
+        co_borrower_line:isJoint?'Co-Borrower: '+S.data.coFirstName+' '+S.data.coLastName:'Individual Application',
+        document_list:'⚠️ Documents were too large to attach. Please follow up with borrower.',
+        loan_details:'See LendingPad notes for details.',
+        employment_details:'See LendingPad notes for details.',
+        financial_details:'See LendingPad notes for details.',
+      });
+      console.log('Fallback email sent without attachments');
+    }catch(e2){console.error('Fallback email also failed:',e2);}
   }
 }
 function toggleSB(){S.sidebarOpen=!S.sidebarOpen;render();}
-function navBack(){if(document.referrer)window.location.href=document.referrer;else window.location.href='https://realtyai.netlify.app';}
+function navBack(){
+  // If inside an iframe (overlay panel), tell parent to close the panel
+  if(window.parent!==window){
+    try{window.parent.postMessage('closeMortgageAgent','*');return;}catch(e){}
+  }
+  // Fallback: navigate back
+  if(document.referrer)window.location.href=document.referrer;
+  else window.location.href='https://realtyai.netlify.app';
+}
 // ═══ INIT — Straight to first question ═══
 async function init(){S.secIdx=1;S.fldIdx=0;render();setTimeout(()=>askNext(1,0,S.data),500);}
 init();

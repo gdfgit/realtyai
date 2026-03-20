@@ -50,8 +50,6 @@ body{font-family:'Outfit',sans-serif;background:var(--bg-subtle);color:var(--tex
 <div class="app" id="app"></div>
 <script>
 const LO={orgName:"NEXA Lending",name:"Giancarlo Di Fazio",nmls:"1913560",email:"gdifazio@nexalending.com",phone:"(949) 312-0103"};
-// Property context from URL params — passed when user clicks "Get Approved in 15 Minutes" on a property card
-// Example: /mortgage-agent?address=123+Main+St&city=Las+Vegas&state=NV&zip=89101&price=500000&type=Single+Family
 const P=(()=>{const p=new URLSearchParams(window.location.search);return{address:p.get('address')||'',city:p.get('city')||'',state:p.get('state')||'',zip:p.get('zip')||'',price:p.get('price')||'',type:p.get('type')||''};})();
 
 const SECTIONS=[
@@ -178,10 +176,8 @@ function addAgent(t,d=500,fieldKey=null){S.typing=true;render();return new Promi
 function addUser(t){S.msgs.push({type:'user',text:t});render();}
 function renderMsg(m,i){
   if(m.type==='user') return`<div class="msg user"><div class="bubble">${fmt(m.text)}</div></div>`;
-  // Agent confirmation messages with fieldKey get edit functionality
   if(m.fieldKey && S.data[m.fieldKey] && !S.submitted){
     if(m.editing){
-      // Show inline edit input
       const f=findField(m.fieldKey);
       const isSelect=f&&f.type==='select';
       const val=f&&f.sensitive?'':S.data[m.fieldKey]||'';
@@ -196,7 +192,6 @@ function renderMsg(m,i){
       editHTML+=`</div></div></div>`;
       return editHTML;
     }
-    // Normal confirmation with edit button
     return`<div class="msg agent"><div class="bubble">${fmt(m.text)} <button class="edit-btn" onclick="startEdit(${i})">✏️ Edit</button></div></div>`;
   }
   return`<div class="msg agent"><div class="bubble">${fmt(m.text)}</div></div>`;
@@ -210,95 +205,72 @@ function findField(key){
   }
   return null;
 }
-function startEdit(msgIdx){
-  S.msgs[msgIdx].editing=true;
-  render();
-  // Focus the input if it exists
-  setTimeout(()=>{const inp=document.getElementById('editInp'+msgIdx);if(inp)inp.focus();},100);
-}
-function cancelEdit(msgIdx){
-  S.msgs[msgIdx].editing=false;
-  render();
-}
+function startEdit(msgIdx){S.msgs[msgIdx].editing=true;render();setTimeout(()=>{const inp=document.getElementById('editInp'+msgIdx);if(inp)inp.focus();},100);}
+function cancelEdit(msgIdx){S.msgs[msgIdx].editing=false;render();}
 function saveEdit(fieldKey,msgIdx,newValue){
   if(!newValue||!newValue.trim())return;
   newValue=newValue.trim();
-  // Update the data
   S.data[fieldKey]=newValue;
-  // Update the confirmation message text
   const f=findField(fieldKey);
   const disp=f&&f.sensitive?'•••••'+newValue.slice(-4):newValue;
   S.msgs[msgIdx].text=`**${f?f.label:fieldKey}**: ${disp} ✓`;
   S.msgs[msgIdx].editing=false;
-  // Also update the user message right before this confirmation (msgIdx-1)
   if(msgIdx>0&&S.msgs[msgIdx-1].type==='user'){
     S.msgs[msgIdx-1].text=f&&f.sensitive?'•••••'+newValue.slice(-4):newValue;
   }
   render();
 }
-async function askNext(si,fi,d){const fields=af(si,d);if(fi>=fields.length){const nsi=si+1;if(nsi>=SECTIONS.length){S.secIdx=SECTIONS.length-1;render();return;}const ns=SECTIONS[nsi];if(ns.review){await addAgent("Review your application and submit when ready.");S.secIdx=nsi;render();return;}// Check if next section has any active fields — if not, skip it silently
-    const nextFields=af(nsi,d);if(nextFields.length===0&&!ns.review&&!ns.greeting){S.secIdx=nsi;S.fldIdx=0;return askNext(nsi,0,d);}await addAgent(`Moving to **${ns.icon} ${ns.title}**...`,300);S.secIdx=nsi;S.fldIdx=0;render();setTimeout(()=>askNext(nsi,0,d),600);return;}const f=fields[fi];if(f.type==='notice'){await addAgent(f.msg,300);S.fldIdx=fi+1;render();setTimeout(()=>askNext(si,fi+1,d),400);return;}if(f.key==='propertyStreet'&&S.data.propertyStreet){await addAgent(`I see you're looking at **${S.data.propertyStreet}**${S.data.propertyCity?', '+S.data.propertyCity:''}${S.data.propertyValue?' — $'+Number(S.data.propertyValue).toLocaleString():''}. I've pre-filled the property details.`);let skip=fi;while(skip<fields.length&&S.data[fields[skip]?.key])skip++;if(skip>fi){S.fldIdx=skip;setTimeout(()=>askNext(si,skip,d),700);return;}}await addAgent(f.q);S.fldIdx=fi;render();}
+async function askNext(si,fi,d){const fields=af(si,d);if(fi>=fields.length){const nsi=si+1;if(nsi>=SECTIONS.length){S.secIdx=SECTIONS.length-1;render();return;}const ns=SECTIONS[nsi];if(ns.review){await addAgent("Review your application and submit when ready.");S.secIdx=nsi;render();return;}const nextFields=af(nsi,d);if(nextFields.length===0&&!ns.review&&!ns.greeting){S.secIdx=nsi;S.fldIdx=0;return askNext(nsi,0,d);}await addAgent(`Moving to **${ns.icon} ${ns.title}**...`,300);S.secIdx=nsi;S.fldIdx=0;render();setTimeout(()=>askNext(nsi,0,d),600);return;}const f=fields[fi];if(f.type==='notice'){await addAgent(f.msg,300);S.fldIdx=fi+1;render();setTimeout(()=>askNext(si,fi+1,d),400);return;}if(f.key==='propertyStreet'&&S.data.propertyStreet){await addAgent(`I see you're looking at **${S.data.propertyStreet}**${S.data.propertyCity?', '+S.data.propertyCity:''}${S.data.propertyValue?' — $'+Number(S.data.propertyValue).toLocaleString():''}. I've pre-filled the property details.`);let skip=fi;while(skip<fields.length&&S.data[fields[skip]?.key])skip++;if(skip>fi){S.fldIdx=skip;setTimeout(()=>askNext(si,skip,d),700);return;}}await addAgent(f.q);S.fldIdx=fi;render();}
 function send(){const inp=document.getElementById('inp');const v=inp?.value?.trim();if(!v)return;processInput(v);}
-// ═══ VOICE INPUT ═══
 function toggleMic(){
-  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
-    alert('Voice input is not supported in this browser. Please use Chrome or Edge.');
-    return;
-  }
-  if(S.listening){
-    if(recognition){recognition.stop();recognition=null;}
-    S.listening=false;
-    render();
-    return;
-  }
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){alert('Voice input is not supported in this browser. Please use Chrome or Edge.');return;}
+  if(S.listening){if(recognition){recognition.stop();recognition=null;}S.listening=false;render();return;}
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  recognition=new SR();
-  recognition.continuous=false;
-  recognition.interimResults=false;
-  recognition.lang='en-US';
-  recognition.maxAlternatives=1;
-  S.listening=true;
-  render();
-  recognition.onresult=(e)=>{
-    let transcript=e.results[0][0].transcript.trim();
-    // For SSN fields, strip everything except digits
-    const fields=af(S.secIdx,S.data);
-    const cf=fields[S.fldIdx];
-    if(cf&&cf.type==='ssn'){
-      transcript=transcript.replace(/[^\d]/g,'');
-    }
-    S.listening=false;
-    // Directly process the voice input as if user typed and hit send
-    if(transcript){
-      processInput(transcript);
-    }
-    recognition=null;
-    render();
-  };
-  recognition.onerror=(e)=>{
-    console.error('Speech error:',e.error);
-    S.listening=false;
-    recognition=null;
-    render();
-  };
-  recognition.onend=()=>{
-    if(S.listening){S.listening=false;render();}
-    recognition=null;
-  };
-  try{recognition.start();}catch(e){
-    console.error('Mic start error:',e);
-    S.listening=false;render();
-  }
+  recognition=new SR();recognition.continuous=false;recognition.interimResults=false;recognition.lang='en-US';recognition.maxAlternatives=1;
+  S.listening=true;render();
+  recognition.onresult=(e)=>{let transcript=e.results[0][0].transcript.trim();const fields=af(S.secIdx,S.data);const cf=fields[S.fldIdx];if(cf&&cf.type==='ssn'){transcript=transcript.replace(/[^\d]/g,'');}S.listening=false;if(transcript){processInput(transcript);}recognition=null;render();};
+  recognition.onerror=(e)=>{console.error('Speech error:',e.error);S.listening=false;recognition=null;render();};
+  recognition.onend=()=>{if(S.listening){S.listening=false;render();}recognition=null;};
+  try{recognition.start();}catch(e){console.error('Mic start error:',e);S.listening=false;render();}
 }
 function selOpt(v){processInput(v);}
 function skip(){addUser('skip');S.fldIdx++;setTimeout(()=>askNext(S.secIdx,S.fldIdx,S.data),300);}
 function skipFile(){addUser("I'll provide later");addAgent("No problem ✓",200).then(()=>{S.fldIdx++;askNext(S.secIdx,S.fldIdx,S.data);});}
-function handleFile(e){const files=Array.from(e.target.files);if(!files.length)return;const fields=af(S.secIdx,S.data),cf=fields[S.fldIdx];S.files[cf.key]=[...(S.files[cf.key]||[]),...files];addUser('📎 '+files.map(f=>f.name).join(', '));addAgent(`Received ${files.length} file(s) ✓`,200).then(()=>{S.fldIdx++;askNext(S.secIdx,S.fldIdx,S.data);});}
+
+// ═══════════════════════════════════════════════════════════
+// FIX #1: handleFile — convert to base64 IMMEDIATELY on select
+// Old version stored raw File objects which went stale after render()
+// New version stores {name, data (base64 string), mimeType, size}
+// ═══════════════════════════════════════════════════════════
+async function handleFile(e){
+  const files=Array.from(e.target.files);
+  if(!files.length)return;
+  const fields=af(S.secIdx,S.data),cf=fields[S.fldIdx];
+  // Convert each file to base64 RIGHT NOW before render() destroys the input
+  const converted=[];
+  for(const file of files){
+    try{
+      const b64=await new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=()=>resolve(reader.result.split(',')[1]);
+        reader.onerror=reject;
+        reader.readAsDataURL(file);
+      });
+      converted.push({name:file.name, data:b64, mimeType:file.type||'application/octet-stream', size:file.size});
+      console.log('File captured:',file.name,'('+file.size+' bytes, b64:'+b64.length+' chars)');
+    }catch(err){
+      console.error('Failed to read file:',file.name,err);
+    }
+  }
+  // Store pre-converted base64 data (NOT raw File objects)
+  S.files[cf.key]=[...(S.files[cf.key]||[]),...converted];
+  addUser('📎 '+converted.map(f=>f.name).join(', '));
+  addAgent(`Received ${converted.length} file(s) ✓`,200).then(()=>{S.fldIdx++;askNext(S.secIdx,S.fldIdx,S.data);});
+}
+
 async function processInput(v){const fields=af(S.secIdx,S.data),cf=fields[S.fldIdx];addUser(v);if(cf){if((v.toLowerCase()==='skip'||v.toLowerCase()==='none')&&!cf.req){S.fldIdx++;setTimeout(()=>askNext(S.secIdx,S.fldIdx,S.data),300);return;}
-// SSN validation — strip dashes/spaces and enforce 9 digits
 if(cf.type==='ssn'){v=v.replace(/[\s\-]/g,'');if(!/^\d{9}$/.test(v)){await addAgent("⚠️ SSN must be exactly 9 digits (e.g. 123456789). Please try again.",300);return;}}
 S.data[cf.key]=v;const disp=cf.sensitive?'•••••'+v.slice(-4):v;await addAgent(`**${cf.label}**: ${disp} ✓`,200,cf.key);const naf=af(S.secIdx,S.data),nfi=S.fldIdx+1;if(nfi<naf.length){S.fldIdx=nfi;setTimeout(()=>askNext(S.secIdx,nfi,S.data),300);}else{
-// Move to next section — but skip any sections with no active fields
 let nsi=S.secIdx+1;
 while(nsi<SECTIONS.length){
   const ns=SECTIONS[nsi];
@@ -310,11 +282,19 @@ while(nsi<SECTIONS.length){
   setTimeout(()=>askNext(nsi,0,S.data),600);
   break;
 }}}}
+
+// ═══ Sanitize phone to 10 digits for LendingPad ═══
+function cleanPhone(p){
+  if(!p)return'';
+  const digits=p.replace(/\D/g,'');
+  if(digits.length===11&&digits.startsWith('1'))return digits.slice(1);
+  return digits;
+}
+
 async function submitApp(){S.submitting=true;render();await addAgent("⚡ Submitting to LendingPad...");
 try{
 const isJoint=S.data.creditType==='Joint (Co-Borrower)';
 const coAddr=S.data.coSameAddress==='Yes';
-// ═══ Build rich note with employment, income, assets, liabilities ═══
 let noteLines=['Submitted via Realty AI Mortgage Agent'+(isJoint?' — JOINT APPLICATION':'')];
 noteLines.push('');
 noteLines.push('═══ BORROWER EMPLOYMENT ═══');
@@ -363,7 +343,7 @@ const payload={
   borrowerFirstName:S.data.firstName,
   borrowerLastName:S.data.lastName,
   borrowerEmail:S.data.email,
-  borrowerMobilePhone:S.data.cellPhone,
+  borrowerMobilePhone:cleanPhone(S.data.cellPhone),
   borrowerSsn:S.data.ssn,
   borrowerBirthDate:S.data.dob,
   borrowerCurrentAddressStreet:S.data.currentStreet,
@@ -392,13 +372,12 @@ if(isJoint){
   payload.coBorrowerEmail=S.data.coEmail;
   payload.coBorrowerSsn=S.data.coSsn;
   payload.coBorrowerBirthDate=S.data.coDob;
-  payload.coBorrowerMobilePhone=S.data.coCellPhone;
+  payload.coBorrowerMobilePhone=cleanPhone(S.data.coCellPhone);
   payload.coBorrowerCurrentAddressStreet=coAddr?S.data.currentStreet:S.data.coCurrentStreet;
   payload.coBorrowerCurrentAddressCity=coAddr?S.data.currentCity:S.data.coCurrentCity;
   payload.coBorrowerCurrentAddressState=coAddr?S.data.currentState:S.data.coCurrentState;
   payload.coBorrowerCurrentAddressZipCode=coAddr?S.data.currentZip:S.data.coCurrentZip;
 } else {
-  // Individual — send N/A placeholders so Zapier mapped fields don't error
   payload.coBorrowerFirstName='N/A';
   payload.coBorrowerLastName='N/A';
 }
@@ -407,7 +386,6 @@ const res=await fetch('https://hooks.zapier.com/hooks/catch/23175236/up1kjr5/',{
 if(!res.ok)throw new Error('Webhook failed: '+res.status);
 const result=await res.json().catch(()=>({}));
 const ln=result.id||('RA'+Date.now().toString().slice(-6));
-// ═══ Send documents via EmailJS ═══
 await sendDocsEmail(ln,isJoint);
 S.result={ln};S.submitted=true;S.submitting=false;
 await addAgent(`🎉 **Application Submitted!**\n\nLoan **#${ln}** created in LendingPad.\n\nReviewing against **250+ lenders** for the best rate. Expect a call within 15 minutes.`);
@@ -417,16 +395,11 @@ S.submitting=false;
 await addAgent(`⚠️ There was an issue submitting. Please try again or contact your loan officer directly at ${LO.phone}.`);
 render();
 }}
-// ═══ HELPER: Convert File to base64 ═══
-function fileToBase64(file){
-  return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=()=>resolve(reader.result.split(',')[1]);
-    reader.onerror=reject;
-    reader.readAsDataURL(file);
-  });
-}
-// ═══ UPLOAD DOCS TO GOOGLE DRIVE + SEND EMAIL ═══
+
+// ═══════════════════════════════════════════════════════════
+// FIX #2: sendDocsEmail — files are already base64 from handleFile
+// No more fileToBase64() needed — data is pre-converted
+// ═══════════════════════════════════════════════════════════
 async function sendDocsEmail(loanId,isJoint){
   try{
     emailjs.init('xElMdZFRvZqh8-bIw');
@@ -435,17 +408,21 @@ async function sendDocsEmail(loanId,isJoint){
     let docList='No documents uploaded — follow up with borrower.';
     // ═══ Upload files to Google Drive via Netlify function ═══
     if(allFiles.length>0){
+      // Files are already {name, data (base64), mimeType, size} from handleFile
       const filesToUpload=[];
       for(const[key,files] of allFiles){
         for(const file of files){
-          try{
-            const prefix=key.startsWith('co')?'CoBorrower_':'Borrower_';
-            const b64=await fileToBase64(file);
-            filesToUpload.push({name:prefix+file.name,data:b64,mimeType:file.type});
-          }catch(e){console.error('File convert error:',e);}
+          const prefix=key.startsWith('co')?'CoBorrower_':'Borrower_';
+          if(file.data){
+            filesToUpload.push({name:prefix+file.name, data:file.data, mimeType:file.mimeType||'application/octet-stream'});
+            console.log('Queued for upload:',prefix+file.name,'('+file.data.length+' b64 chars)');
+          }else{
+            console.warn('Skipping file with no data:',file.name);
+          }
         }
       }
       if(filesToUpload.length>0){
+        console.log('Uploading',filesToUpload.length,'file(s) to Google Drive...');
         try{
           const uploadRes=await fetch('/.netlify/functions/upload-docs',{
             method:'POST',
@@ -457,16 +434,18 @@ async function sendDocsEmail(loanId,isJoint){
             }),
           });
           const uploadResult=await uploadRes.json();
+          console.log('Upload result:',uploadResult);
           if(uploadResult.success){
             driveLink=uploadResult.folderLink||'';
             docList='✅ '+uploadResult.count+' document(s) uploaded to Google Drive\n';
             docList+='📁 Folder: '+uploadResult.folderName+'\n';
             docList+='🔗 '+driveLink+'\n\n';
             uploadResult.files.forEach(f=>{
-              docList+='  • '+(f.error?'❌ '+f.name+' (failed)':'✅ '+f.name)+'\n';
+              docList+='  • '+(f.error?'❌ '+f.name+' ('+f.error+')':'✅ '+f.name)+'\n';
             });
           }else{
-            docList='⚠️ Upload failed: '+uploadResult.error+'\nFile names listed below — follow up with borrower.\n';
+            console.error('Upload failed:',uploadResult.error);
+            docList='⚠️ Upload failed: '+(uploadResult.error||'unknown')+'\nFile names listed below — follow up with borrower.\n';
             filesToUpload.forEach(f=>{docList+='  • '+f.name+'\n';});
           }
         }catch(uploadErr){
@@ -541,15 +520,10 @@ async function sendDocsEmail(loanId,isJoint){
 }
 function toggleSB(){S.sidebarOpen=!S.sidebarOpen;render();}
 function navBack(){
-  // If inside an iframe (overlay panel), tell parent to close the panel
-  if(window.parent!==window){
-    try{window.parent.postMessage('closeMortgageAgent','*');return;}catch(e){}
-  }
-  // Fallback: navigate back
+  if(window.parent!==window){try{window.parent.postMessage('closeMortgageAgent','*');return;}catch(e){}}
   if(document.referrer)window.location.href=document.referrer;
   else window.location.href='https://realtyai.netlify.app';
 }
-// ═══ INIT — Straight to first question ═══
 async function init(){S.secIdx=1;S.fldIdx=0;render();setTimeout(()=>askNext(1,0,S.data),500);}
 init();
 </script>

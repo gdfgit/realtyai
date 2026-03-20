@@ -42,7 +42,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg-subtle);color:var(--tex
 @keyframes pulse{0%,80%,100%{opacity:.3;transform:scale(.8)}40%{opacity:1;transform:scale(1.1)}}
 @keyframes shimmer{0%{left:-100%}100%{left:200%}}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-@media(max-width:768px){.sidebar{position:fixed;z-index:100;height:100vh;width:0;overflow:hidden}.sidebar.show-mobile{width:280px}.bubble{max-width:88%!important}.rg,.highlight-grid{grid-template-columns:1fr}}
+.sidebar-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:99;animation:fadeIn .2s ease}.sidebar-overlay.show{display:block}
+.sidebar-close{display:none;position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:none;background:var(--red-bg);color:var(--red);font-size:20px;cursor:pointer;font-family:inherit;z-index:101;align-items:center;justify-content:center;transition:all .2s}.sidebar-close:hover{background:var(--red);color:#fff}
+.uploaded-files{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}.uploaded-file{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-subtle);border:1px solid var(--border-light);border-radius:8px;font-size:13px;color:var(--text-mid)}.uploaded-file .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.uploaded-file .fremove{width:24px;height:24px;border-radius:50%;border:1px solid var(--red-border);background:var(--red-bg);color:var(--red);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;font-family:inherit;padding:0;line-height:1}.uploaded-file .fremove:hover{background:var(--red);color:#fff;border-color:var(--red)}
+@media(max-width:768px){.sidebar{position:fixed;z-index:100;height:100vh;width:0;overflow:hidden}.sidebar.show-mobile{width:280px}.sidebar-close{display:flex}.bubble{max-width:88%!important}.rg,.highlight-grid{grid-template-columns:1fr}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 </head>
@@ -167,7 +170,11 @@ function render(){
   const sec=SECTIONS[S.secIdx],fields=af(S.secIdx,S.data),cf=fields[S.fldIdx],p=pct(),isReview=sec?.review,isSelect=cf?.type==='select',isFile=cf?.type==='file',hasProp=P.address||P.price;
   const isMobile=window.innerWidth<=768;
   const sidebarClass=isMobile?(S.sidebarOpen?'sidebar show-mobile':'sidebar'):(S.sidebarOpen?'sidebar':'sidebar collapsed');
-  document.getElementById('app').innerHTML=`<div class="${sidebarClass}"><button class="sidebar-back" onclick="navBack()">← Back to Realty AI</button><div class="s-brand"><div class="logo"><div class="logo-icon"><img src="/logo.png" alt="Realty AI"/></div><div class="logo-text">Realty <span>AI</span></div></div><h2>Mortgage Application</h2><div class="sub">Uniform Residential Loan Application</div><div class="badge-15">⚡ Get Approved!</div></div><div class="prog"><div class="row"><span>Progress</span><span>${p}%</span></div><div class="prog-track"><div class="prog-fill" style="width:${p}%"></div></div></div><div class="nav">${SECTIONS.filter(s=>!s.greeting).map((s,i)=>{const ri=i+1,cls=S.secIdx===ri?'active':S.secIdx>ri?'complete':'pending';return`<div class="nav-item ${cls}"><span class="ic">${S.secIdx>ri?'✓':s.icon}</span><span>${s.title}</span></div>`;}).join('')}</div><div class="lo"><div class="t">Your Loan Officer</div><div><strong>${LO.name}</strong></div><div>NMLS# ${LO.nmls} • ${LO.orgName}</div><div>${LO.email}</div><div>${LO.phone}</div></div></div><div class="main"><div class="topbar"><div class="topbar-left"><button class="menu-btn" onclick="toggleSB()">☰</button><div><div class="topbar-title">${sec?.icon||''} ${sec?.title||''}</div><div class="topbar-sub">Section ${S.secIdx} of ${SECTIONS.length-1}</div></div></div><div class="topbar-badge">${p}% Complete</div></div><div class="chat" id="chatArea">${hasProp&&S.msgs.length<=1?`<div class="prop-banner"><div class="prop-icon">🏠</div><div class="prop-info"><strong>${P.address||'Selected Property'}</strong>${P.price?'$'+Number(P.price).toLocaleString():''} ${P.city?'• '+P.city+', '+P.state:''}</div></div>`:''}${S.msgs.map((m,i)=>renderMsg(m,i)).join('')}${S.typing?`<div class="typing-wrap"><div class="typing-b"><div class="td"></div><div class="td"></div><div class="td"></div></div></div>`:''}${isReview&&!S.submitted?renderReview():''}${S.submitted?renderSuccess():''}</div>${!isReview&&!S.submitted?`<div class="input-area">${isSelect&&cf?.opts?`<div class="sel-opts">${cf.opts.map(o=>`<button class="opt-btn" onclick="selOpt('${o.replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>`:''}${isFile?`<div class="file-row"><button class="upload-btn" onclick="document.getElementById('fInp').click()">📎 Upload Files</button><button class="file-skip-btn" onclick="skipFile()">Provide Later</button></div><input type="file" id="fInp" style="display:none" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="handleFile(event)"/>`:`<div class="input-row"><input class="chat-input" id="inp" type="${cf?.type==='ssn'?'password':'text'}" placeholder="${cf?'Type your '+cf.label.toLowerCase()+'...':'Type...'}" onkeydown="if(event.key==='Enter')send()"/><button class="send-btn" id="sendBtn" onclick="send()">Send</button>${cf&&!cf.req?'<button class="skip-btn" onclick="skip()">Skip</button>':''}</div><div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px"><button class="mic-btn ${S.listening?'listening':''}" onclick="toggleMic()" title="${S.listening?'Stop listening':'Tap to speak'}"><svg width="22" height="22" fill="none" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#fff"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M12 19v4m-4 0h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></button><span style="font-size:11px;color:${S.listening?'var(--red)':'var(--text-light)'};font-weight:${S.listening?'600':'400'}">${S.listening?'Listening... tap to stop':'or tap to speak'}</span></div>`}<div class="disclaimer">🔒 Encrypted & secure. By proceeding you consent to a credit inquiry.</div></div>`:''}</div>`;
+  // Build uploaded files list for current field
+  const currentFileKey=cf?.key;
+  const currentFiles=isFile&&currentFileKey?S.files[currentFileKey]||[]:[];
+  const fileListHTML=currentFiles.length>0?`<div class="uploaded-files">${currentFiles.map((f,fi)=>`<div class="uploaded-file"><span class="fname">📎 ${f.name}</span><button class="fremove" onclick="removeFile('${currentFileKey}',${fi})" title="Remove">✕</button></div>`).join('')}</div>`:'';
+  document.getElementById('app').innerHTML=`${isMobile&&S.sidebarOpen?'<div class="sidebar-overlay show" onclick="toggleSB()"></div>':''}<div class="${sidebarClass}">${isMobile?'<button class="sidebar-close" onclick="toggleSB()">✕</button>':''}<button class="sidebar-back" onclick="navBack()">← Back to Realty AI</button><div class="s-brand"><div class="logo"><div class="logo-icon"><img src="/logo.png" alt="Realty AI"/></div><div class="logo-text">Realty <span>AI</span></div></div><h2>Mortgage Application</h2><div class="sub">Uniform Residential Loan Application</div><div class="badge-15">⚡ Get Approved!</div></div><div class="prog"><div class="row"><span>Progress</span><span>${p}%</span></div><div class="prog-track"><div class="prog-fill" style="width:${p}%"></div></div></div><div class="nav">${SECTIONS.filter(s=>!s.greeting).map((s,i)=>{const ri=i+1,cls=S.secIdx===ri?'active':S.secIdx>ri?'complete':'pending';return`<div class="nav-item ${cls}"><span class="ic">${S.secIdx>ri?'✓':s.icon}</span><span>${s.title}</span></div>`;}).join('')}</div><div class="lo"><div class="t">Your Loan Officer</div><div><strong>${LO.name}</strong></div><div>NMLS# ${LO.nmls} • ${LO.orgName}</div><div>${LO.email}</div><div>${LO.phone}</div></div></div><div class="main"><div class="topbar"><div class="topbar-left"><button class="menu-btn" onclick="toggleSB()">☰</button><div><div class="topbar-title">${sec?.icon||''} ${sec?.title||''}</div><div class="topbar-sub">Section ${S.secIdx} of ${SECTIONS.length-1}</div></div></div><div class="topbar-badge">${p}% Complete</div></div><div class="chat" id="chatArea">${hasProp&&S.msgs.length<=1?`<div class="prop-banner"><div class="prop-icon">🏠</div><div class="prop-info"><strong>${P.address||'Selected Property'}</strong>${P.price?'$'+Number(P.price).toLocaleString():''} ${P.city?'• '+P.city+', '+P.state:''}</div></div>`:''}${S.msgs.map((m,i)=>renderMsg(m,i)).join('')}${S.typing?`<div class="typing-wrap"><div class="typing-b"><div class="td"></div><div class="td"></div><div class="td"></div></div></div>`:''}${isReview&&!S.submitted?renderReview():''}${S.submitted?renderSuccess():''}</div>${!isReview&&!S.submitted?`<div class="input-area">${isSelect&&cf?.opts?`<div class="sel-opts">${cf.opts.map(o=>`<button class="opt-btn" onclick="selOpt('${o.replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>`:''}${isFile?`${fileListHTML}<div class="file-row"><button class="upload-btn" onclick="document.getElementById('fInp').click()">📎 ${currentFiles.length>0?'Add More Files':'Upload Files'}</button><button class="file-skip-btn" onclick="skipFile()">${currentFiles.length>0?'Done':'Provide Later'}</button></div><input type="file" id="fInp" style="display:none" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="handleFile(event)"/>`:`<div class="input-row"><input class="chat-input" id="inp" type="${cf?.type==='ssn'?'password':'text'}" placeholder="${cf?'Type your '+cf.label.toLowerCase()+'...':'Type...'}" onkeydown="if(event.key==='Enter')send()"/><button class="send-btn" id="sendBtn" onclick="send()">Send</button>${cf&&!cf.req?'<button class="skip-btn" onclick="skip()">Skip</button>':''}</div><div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px"><button class="mic-btn ${S.listening?'listening':''}" onclick="toggleMic()" title="${S.listening?'Stop listening':'Tap to speak'}"><svg width="22" height="22" fill="none" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#fff"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M12 19v4m-4 0h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></button><span style="font-size:11px;color:${S.listening?'var(--red)':'var(--text-light)'};font-weight:${S.listening?'600':'400'}">${S.listening?'Listening... tap to stop':'or tap to speak'}</span></div>`}<div class="disclaimer">🔒 Encrypted & secure. By proceeding you consent to a credit inquiry.</div></div>`:''}</div>`;
   const ca=document.getElementById('chatArea');if(ca)ca.scrollTop=ca.scrollHeight;const inp=document.getElementById('inp');if(inp){inp.focus();inp.addEventListener('input',()=>{const b=document.getElementById('sendBtn');if(b){inp.value.trim()?b.classList.add('active'):b.classList.remove('active');}});}
 }
 function renderReview(){let h='<div class="review-card"><h3>📋 Application Summary</h3><div class="highlight-box"><div class="highlight-grid"><div><div class="hl">Purchase Price</div><div class="hv price">$'+Number(S.data.propertyValue||0).toLocaleString()+'</div></div><div><div class="hl">Loan Amount</div><div class="hv">$'+Number(S.data.loanAmount||0).toLocaleString()+'</div></div><div><div class="hl">Loan Type</div><div class="hv">'+(S.data.financingType||'—')+'</div></div><div><div class="hl">Occupancy</div><div class="hv">'+(S.data.occupancy||'—')+'</div></div></div></div>';SECTIONS.filter(s=>!s.greeting&&!s.review&&s.fields.length).forEach(sec=>{const filled=sec.fields.filter(f=>f.type!=='computed'&&f.type!=='notice'&&f.type!=='file'&&S.data[f.key]);if(!filled.length)return;h+='<div class="rs-title">'+sec.icon+' '+sec.title+'</div><div class="rg">';filled.forEach(f=>{const v=f.sensitive?'•••••'+S.data[f.key].slice(-4):S.data[f.key];h+='<div class="rf"><span class="l">'+f.label+': </span><span class="v">'+v+'</span></div>';});h+='</div>';});h+='<div class="rs-title">🏦 Loan Officer</div><div style="font-size:13px;color:var(--text-mid);margin-bottom:24px">'+LO.name+' • NMLS# '+LO.nmls+'<br/>'+LO.orgName+' • '+LO.email+'</div>';h+='<button class="submit-btn" '+(S.submitting?'disabled':'')+' onclick="submitApp()"><span class="shimmer"></span>'+(S.submitting?'⏳ Submitting to LendingPad...':'⚡ Submit — Get Approved!')+'</button></div>';return h;}
@@ -235,19 +242,27 @@ function toggleMic(){
 }
 function selOpt(v){processInput(v);}
 function skip(){addUser('skip');S.fldIdx++;setTimeout(()=>askNext(S.secIdx,S.fldIdx,S.data),300);}
-function skipFile(){addUser("I'll provide later");addAgent("No problem ✓",200).then(()=>{S.fldIdx++;askNext(S.secIdx,S.fldIdx,S.data);});}
+function skipFile(){
+  const fields=af(S.secIdx,S.data),cf=fields[S.fldIdx];
+  const currentFiles=cf?S.files[cf.key]||[]:[];
+  if(currentFiles.length>0){
+    addUser('📎 '+currentFiles.map(f=>f.name).join(', '));
+    addAgent(`Received ${currentFiles.length} file(s) ✓`,200).then(()=>{S.fldIdx++;askNext(S.secIdx,S.fldIdx,S.data);});
+  }else{
+    addUser("I'll provide later");
+    addAgent("No problem ✓",200).then(()=>{S.fldIdx++;askNext(S.secIdx,S.fldIdx,S.data);});
+  }
+}
 
 // ═══════════════════════════════════════════════════════════
 // FIX #1: handleFile — convert to base64 IMMEDIATELY on select
-// Old version stored raw File objects which went stale after render()
-// New version stores {name, data (base64 string), mimeType, size}
+// Does NOT auto-advance — user clicks "Done" or "Add More Files"
 // ═══════════════════════════════════════════════════════════
 async function handleFile(e){
   const files=Array.from(e.target.files);
   if(!files.length)return;
   const fields=af(S.secIdx,S.data),cf=fields[S.fldIdx];
-  // Convert each file to base64 RIGHT NOW before render() destroys the input
-  const converted=[];
+  // Convert each file to base64 RIGHT NOW
   for(const file of files){
     try{
       const b64=await new Promise((resolve,reject)=>{
@@ -256,16 +271,24 @@ async function handleFile(e){
         reader.onerror=reject;
         reader.readAsDataURL(file);
       });
-      converted.push({name:file.name, data:b64, mimeType:file.type||'application/octet-stream', size:file.size});
-      console.log('File captured:',file.name,'('+file.size+' bytes, b64:'+b64.length+' chars)');
+      if(!S.files[cf.key])S.files[cf.key]=[];
+      S.files[cf.key].push({name:file.name, data:b64, mimeType:file.type||'application/octet-stream', size:file.size});
+      console.log('File captured:',file.name,'('+file.size+' bytes)');
     }catch(err){
       console.error('Failed to read file:',file.name,err);
     }
   }
-  // Store pre-converted base64 data (NOT raw File objects)
-  S.files[cf.key]=[...(S.files[cf.key]||[]),...converted];
-  addUser('📎 '+converted.map(f=>f.name).join(', '));
-  addAgent(`Received ${converted.length} file(s) ✓`,200).then(()=>{S.fldIdx++;askNext(S.secIdx,S.fldIdx,S.data);});
+  // Re-render to show updated file list — don't advance yet
+  render();
+}
+
+// ═══ Remove an uploaded file ═══
+function removeFile(fileKey,fileIndex){
+  if(S.files[fileKey]){
+    S.files[fileKey].splice(fileIndex,1);
+    if(S.files[fileKey].length===0)delete S.files[fileKey];
+  }
+  render();
 }
 
 async function processInput(v){const fields=af(S.secIdx,S.data),cf=fields[S.fldIdx];addUser(v);if(cf){if((v.toLowerCase()==='skip'||v.toLowerCase()==='none')&&!cf.req){S.fldIdx++;setTimeout(()=>askNext(S.secIdx,S.fldIdx,S.data),300);return;}

@@ -1,12 +1,13 @@
 // netlify/functions/upload-docs.js
-// Uploads mortgage documents to Google Drive
-// Uses Google Service Account with full drive scope to avoid quota errors
+// Uploads mortgage documents to Google Drive using OAuth2 (as nationrealtor@gmail.com)
+// This avoids the "Service Accounts do not have storage quota" error
 
 const { google } = require('googleapis');
 const { Readable } = require('stream');
 
-const SERVICE_ACCOUNT_EMAIL = process.env.GDRIVE_CLIENT_EMAIL;
-const PRIVATE_KEY = (process.env.GDRIVE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+const CLIENT_ID = process.env.GDRIVE_CLIENT_ID;
+const CLIENT_SECRET = process.env.GDRIVE_CLIENT_SECRET;
+const REFRESH_TOKEN = process.env.GDRIVE_REFRESH_TOKEN;
 const PARENT_FOLDER_ID = process.env.GDRIVE_FOLDER_ID;
 
 function bufferToStream(buffer) {
@@ -36,10 +37,12 @@ exports.handler = async (event) => {
   }
 
   try {
-    if (!SERVICE_ACCOUNT_EMAIL || !PRIVATE_KEY || !PARENT_FOLDER_ID) {
+    // Validate env vars
+    if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN || !PARENT_FOLDER_ID) {
       console.error('Missing env vars:', {
-        hasEmail: !!SERVICE_ACCOUNT_EMAIL,
-        hasKey: !!PRIVATE_KEY,
+        hasClientId: !!CLIENT_ID,
+        hasClientSecret: !!CLIENT_SECRET,
+        hasRefreshToken: !!REFRESH_TOKEN,
         hasFolder: !!PARENT_FOLDER_ID,
       });
       return {
@@ -56,10 +59,7 @@ exports.handler = async (event) => {
       body = JSON.parse(event.body);
     } catch (parseErr) {
       console.error('JSON parse failed. Size:', bodySize);
-      return {
-        statusCode: 400, headers,
-        body: JSON.stringify({ error: 'Invalid JSON. Size: ' + bodySize }),
-      };
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON' }) };
     }
 
     const { borrowerName, loanId, files } = body;
@@ -70,21 +70,17 @@ exports.handler = async (event) => {
 
     console.log(`Uploading ${files.length} file(s) for ${borrowerName}`);
 
-    // ═══ KEY FIX: Use full 'drive' scope instead of 'drive.file' ═══
-    // This allows the service account to properly use the shared folder
-    const auth = new google.auth.JWT(
-      SERVICE_ACCOUNT_EMAIL,
-      null,
-      PRIVATE_KEY,
-      ['https://www.googleapis.com/auth/drive']
-    );
+    // ═══ OAuth2 authentication (as nationrealtor@gmail.com) ═══
+    const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
+    oauth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
 
-    await auth.authorize();
-    console.log('Google auth OK');
+    // Force a token refresh to verify credentials work
+    await oauth2Client.getAccessToken();
+    console.log('OAuth2 auth OK');
 
-    const drive = google.drive({ version: 'v3', auth });
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
-    // Create subfolder
+    // Create subfolder for this loan
     const today = new Date().toISOString().slice(0, 10);
     const folderName = `${borrowerName || 'Unknown'} — ${today} — ${loanId || 'pending'}`;
 
@@ -94,7 +90,6 @@ exports.handler = async (event) => {
         mimeType: 'application/vnd.google-apps.folder',
         parents: [PARENT_FOLDER_ID],
       },
-      supportsAllDrives: true,
       fields: 'id, webViewLink',
     });
 
@@ -102,7 +97,7 @@ exports.handler = async (event) => {
     const folderLink = folderRes.data.webViewLink;
     console.log(`Created folder: ${folderName} (${subfolderId})`);
 
-    // ═══ Upload each file — transfer ownership to folder owner ═══
+    // Upload each file
     const uploadedFiles = [];
     for (const file of files) {
       try {
@@ -146,41 +141,10 @@ exports.handler = async (event) => {
             mimeType,
             body: bufferToStream(buffer),
           },
-          supportsAllDrives: true,
           fields: 'id, name, webViewLink',
         });
 
         console.log(`Uploaded OK: ${fileRes.data.name} -> ${fileRes.data.id}`);
-
-        // ═══ Transfer ownership to the Drive folder owner ═══
-        // This moves the storage quota from the service account to the folder owner
-        try {
-          // First, get the parent folder's owner
-          const parentInfo = await drive.files.get({
-            fileId: PARENT_FOLDER_ID,
-            fields: 'owners',
-            supportsAllDrives: true,
-          });
-          const ownerEmail = parentInfo.data.owners?.[0]?.emailAddress;
-
-          if (ownerEmail) {
-            await drive.permissions.create({
-              fileId: fileRes.data.id,
-              transferOwnership: true,
-              supportsAllDrives: true,
-              requestBody: {
-                type: 'user',
-                role: 'owner',
-                emailAddress: ownerEmail,
-              },
-            });
-            console.log(`Transferred ownership of ${fileName} to ${ownerEmail}`);
-          }
-        } catch (permErr) {
-          // Ownership transfer may fail — file is still accessible via shared folder
-          console.log(`Note: Could not transfer ownership of ${fileName}: ${permErr.message}`);
-        }
-
         uploadedFiles.push({
           name: fileRes.data.name,
           id: fileRes.data.id,

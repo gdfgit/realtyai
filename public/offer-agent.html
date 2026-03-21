@@ -320,9 +320,8 @@ function renderInputBar(){
       uploaded.forEach((f,idx)=>{fh+='<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--bg-page);border:1px solid var(--border-light);border-radius:var(--radius-sm);margin-bottom:4px;font-size:13px"><span>📄 '+f.name+'</span><button onclick="removeFile(\''+cf.key+'\','+idx+')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;margin-left:auto">✕</button></div>';});
       fh+='</div>';
     }
-    fh+='<div style="display:flex;gap:8px;flex-wrap:wrap"><button onclick="document.getElementById(\'fInp\').click()" style="padding:12px 20px;border-radius:var(--radius);border:1px solid var(--red);background:var(--red-bg);color:var(--red);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">'+(uploaded.length>0?'📎 Add More Files':'📎 Upload Files')+'</button>';
+    fh+='<div style="display:flex;gap:8px;flex-wrap:wrap"><button onclick="triggerFileUpload()" style="padding:12px 20px;border-radius:var(--radius);border:1px solid var(--red);background:var(--red-bg);color:var(--red);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">'+(uploaded.length>0?'📎 Add More Files':'📎 Upload Files')+'</button>';
     fh+='<button onclick="skipFile()" style="padding:12px 20px;border-radius:var(--radius);border:none;background:var(--red);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">'+(uploaded.length>0?'✓ Done':'Skip — Provide Later')+'</button></div>';
-    fh+='<input type="file" id="fInp" style="display:none" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onchange="handleFile(event)"/>';
     fh+='</div>';
     return fh;
   }
@@ -374,6 +373,14 @@ async function handleFile(e){
   render();
 }
 function removeFile(key,idx){S.files[key].splice(idx,1);render();}
+function triggerFileUpload(){
+  const inp=document.createElement('input');
+  inp.type='file';inp.multiple=true;inp.accept='.pdf,.jpg,.jpeg,.png,.doc,.docx';
+  inp.style.display='none';
+  inp.onchange=function(e){handleFile(e);document.body.removeChild(inp);};
+  document.body.appendChild(inp);
+  inp.click();
+}
 function skipFile(){
   const af2=activeFields(S.secIdx,S.data),cf=af2[S.fldIdx];
   const currentFiles=cf?S.files[cf.key]||[]:[];

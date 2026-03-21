@@ -224,10 +224,16 @@ const SECTIONS=[
     {key:"listingAgentPhone",label:"Listing Agent Phone",type:"text",req:false,q:"Listing agent's **phone**? (Skip if unknown)"},
     {key:"deliveryMethod",label:"Offer Delivery Method",type:"select",opts:["Email","MLS Portal","Fax","Other"],req:true,q:"How should the offer be **delivered**?"},
   ]},
+  // ── 10: Document Upload ──
+  {id:"docs",title:"Upload Documents",icon:"📎",fields:[
+    {type:"notice",msg:"Upload any supporting documents for your offer — pre-approval letter, proof of funds, earnest money receipt, buyer letter, or any other documents."},
+    {key:"offerDocs",label:"Offer Documents",type:"file",req:false,q:"Upload your documents (pre-approval letter, proof of funds, etc.). You can upload multiple files at once, or provide later."},
+  ]},
+  // ── 11: Review & Submit ──
   {id:"review",title:"Review & Submit",icon:"🚀",review:true,fields:[]},
 ];
 
-const S={secIdx:0,fldIdx:0,msgs:[],data:{},typing:false,submitting:false,submitted:false,sidebarOpen:window.innerWidth>768,listening:false};
+const S={secIdx:0,fldIdx:0,msgs:[],data:{},files:{},typing:false,submitting:false,submitted:false,sidebarOpen:window.innerWidth>768,listening:false};
 let recognition=null;
 
 function activeFields(si,d){const s=SECTIONS[si];if(!s||!s.fields)return[];return s.fields.filter(f=>!f.cond||f.cond(d));}
@@ -304,8 +310,22 @@ function renderSuccess(){
 function renderInputBar(){
   const sec=SECTIONS[S.secIdx];
   if(sec&&(sec.review||sec.greeting))return'<div class="input-bar"><div class="legal-bar">Residential Purchase Agreement • For informational purposes only • Not legal advice</div></div>';
-  const af=activeFields(S.secIdx,S.data),cf=af[S.fldIdx],isSelect=cf&&cf.type==='select',canSkip=cf&&!cf.req;
+  const af=activeFields(S.secIdx,S.data),cf=af[S.fldIdx],isSelect=cf&&cf.type==='select',isFile=cf&&cf.type==='file',canSkip=cf&&!cf.req;
   if(isSelect)return'<div class="input-bar"><div class="legal-bar">Select an option above to continue</div></div>';
+  if(isFile){
+    const uploaded=cf?S.files[cf.key]||[]:[];
+    let fh='<div class="input-bar">';
+    if(uploaded.length>0){
+      fh+='<div style="margin-bottom:10px">';
+      uploaded.forEach((f,idx)=>{fh+='<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--bg-page);border:1px solid var(--border-light);border-radius:var(--radius-sm);margin-bottom:4px;font-size:13px"><span>📄 '+f.name+'</span><button onclick="removeFile(\''+cf.key+'\','+idx+')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;margin-left:auto">✕</button></div>';});
+      fh+='</div>';
+    }
+    fh+='<div style="display:flex;gap:8px;flex-wrap:wrap"><button onclick="document.getElementById(\'fInp\').click()" style="padding:12px 20px;border-radius:var(--radius);border:1px solid var(--red);background:var(--red-bg);color:var(--red);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">'+(uploaded.length>0?'📎 Add More Files':'📎 Upload Files')+'</button>';
+    fh+='<button onclick="skipFile()" style="padding:12px 20px;border-radius:var(--radius);border:none;background:var(--red);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">'+(uploaded.length>0?'✓ Done':'Skip — Provide Later')+'</button></div>';
+    fh+='<input type="file" id="fInp" style="display:none" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onchange="handleFile(event)"/>';
+    fh+='</div>';
+    return fh;
+  }
   return`<div class="input-bar"><div class="input-row"><input class="chat-input" id="inp" placeholder="Type your answer..." onkeydown="if(event.key==='Enter')send()" autocomplete="off"/><button class="send-btn active" onclick="send()">Send</button>${canSkip?'<button class="skip-btn" onclick="skip()">Skip</button>':''}</div><div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px"><button class="mic-btn ${S.listening?'listening':''}" onclick="toggleMic()" title="${S.listening?'Stop listening':'Tap to speak'}"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#fff"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M12 19v4m-4 0h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></button><span style="font-size:11px;color:${S.listening?'var(--red)':'var(--text-light)'};font-weight:${S.listening?'600':'400'}">${S.listening?'Listening... tap to stop':'or tap to speak'}</span></div></div>`;
 }
 
@@ -340,6 +360,31 @@ function toggleMic(){
   recognition.onend=()=>{S.listening=false;render();};
   recognition.start();
 }
+// ═══ FILE UPLOAD ═══
+async function handleFile(e){
+  const files=Array.from(e.target.files);if(!files.length)return;
+  const af2=activeFields(S.secIdx,S.data),cf=af2[S.fldIdx];if(!cf)return;
+  for(const file of files){
+    try{
+      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});
+      if(!S.files[cf.key])S.files[cf.key]=[];
+      S.files[cf.key].push({name:file.name,size:file.size,type:file.type,data:b64});
+    }catch(err){console.error('File read error:',err);}
+  }
+  render();
+}
+function removeFile(key,idx){S.files[key].splice(idx,1);render();}
+function skipFile(){
+  const af2=activeFields(S.secIdx,S.data),cf=af2[S.fldIdx];
+  const currentFiles=cf?S.files[cf.key]||[]:[];
+  if(currentFiles.length>0){
+    addUser('📎 '+currentFiles.map(f=>f.name).join(', '));
+    addAgent('Received '+currentFiles.length+' file(s) ✓',200).then(()=>{S.fldIdx++;askNext(S.secIdx,S.fldIdx,S.data);});
+  }else{
+    addUser("I'll provide later");
+    addAgent("No problem — you can provide documents later ✓",200).then(()=>{S.fldIdx++;askNext(S.secIdx,S.fldIdx,S.data);});
+  }
+}
 function selOpt(v){processInput(v);}
 function skip(){addUser('(skipped)');S.fldIdx++;setTimeout(()=>askNext(S.secIdx,S.fldIdx,S.data),400);}
 
@@ -353,12 +398,53 @@ async function processInput(v){
   else{const nsi=S.secIdx+1;if(nsi<SECTIONS.length){const ns=SECTIONS[nsi];if(ns.review){await addAgent("You've completed all sections! Here's your **offer summary** for review.");S.secIdx=nsi;render();}else{await addAgent(`Moving on to **${ns.icon} ${ns.title}**...`,400);S.secIdx=nsi;S.fldIdx=0;render();setTimeout(()=>askNext(nsi,0,S.data),800);}}}
 }
 
-async function submitOffer(){S.submitting=true;render();await addAgent("Generating your Residential Purchase Agreement...");await new Promise(r=>setTimeout(r,1500));await addAgent("Compiling all sections into RPA format...");await new Promise(r=>setTimeout(r,1500));S.submitted=true;S.submitting=false;await addAgent("🎉 **Offer generated successfully!** Your RPA is ready for signature and delivery.");render();}
+async function submitOffer(){
+  S.submitting=true;render();
+  await addAgent("Generating your Residential Purchase Agreement...");
+  await new Promise(r=>setTimeout(r,1000));
+
+  // Upload documents to Google Drive if any
+  const allFiles=Object.entries(S.files);
+  let driveLink='';
+  if(allFiles.length>0){
+    await addAgent("Uploading documents to secure storage...");
+    try{
+      const fileList=[];
+      for(const[key,files] of allFiles){
+        for(const file of files){
+          fileList.push({name:file.name,data:file.data.split(',').pop(),mimeType:file.type||'application/octet-stream'});
+        }
+      }
+      const res=await fetch('/.netlify/functions/upload-docs',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          borrowerName:S.data.buyerName||'Unknown Buyer',
+          loanId:'OFFER-'+Date.now(),
+          files:fileList,
+          folderId:'1dP9SnHq5S8UUz7rgk6l75wLaTv9ERM0T'
+        })
+      });
+      const result=await res.json();
+      if(result.folderLink)driveLink=result.folderLink;
+      await addAgent("📁 Documents uploaded successfully ✓");
+    }catch(err){
+      console.error('Drive upload error:',err);
+      await addAgent("⚠️ Document upload encountered an issue — your agent will follow up.");
+    }
+  }
+
+  await addAgent("Compiling all sections into RPA format...");
+  await new Promise(r=>setTimeout(r,1000));
+  S.submitted=true;S.submitting=false;
+  await addAgent("🎉 **Offer generated successfully!** Your RPA is ready for signature and delivery."+(driveLink?' [View Documents]('+driveLink+')':''));
+  render();
+}
 function editOffer(){S.secIdx=1;S.fldIdx=0;S.msgs.push({type:'agent',text:"Let's review — type a correction or Send to keep."});render();setTimeout(()=>askNext(1,0,S.data),600);}
 
 function goBack(){window.parent.postMessage({type:'NAVIGATE',to:'dashboard'},'*');}
 function toggleSidebar(){S.sidebarOpen=!S.sidebarOpen;render();}
-function resetAgent(){if(!confirm('Start over? All data will be cleared.'))return;Object.assign(S,{secIdx:0,fldIdx:0,msgs:[],data:{},typing:false,submitting:false,submitted:false});init();}
+function resetAgent(){if(!confirm('Start over? All data will be cleared.'))return;Object.assign(S,{secIdx:0,fldIdx:0,msgs:[],data:{},files:{},typing:false,submitting:false,submitted:false});init();}
 
 async function init(){
   render();

@@ -1,6 +1,8 @@
 // netlify/functions/upload-docs.js
-// Uploads mortgage documents to Google Drive using OAuth2 (as nationrealtor@gmail.com)
-// This avoids the "Service Accounts do not have storage quota" error
+// Uploads documents to Google Drive using OAuth2 (as nationrealtor@gmail.com)
+// Supports both Mortgage Agent and Offer Agent by accepting optional folderId in request
+// - If folderId is passed in request body, uses that folder
+// - Otherwise falls back to GDRIVE_FOLDER_ID env variable (Mortgage Applications folder)
 
 const { google } = require('googleapis');
 const { Readable } = require('stream');
@@ -37,7 +39,6 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Validate env vars
     if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN || !PARENT_FOLDER_ID) {
       console.error('Missing env vars:', {
         hasClientId: !!CLIENT_ID,
@@ -59,28 +60,29 @@ exports.handler = async (event) => {
       body = JSON.parse(event.body);
     } catch (parseErr) {
       console.error('JSON parse failed. Size:', bodySize);
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON' }) };
+      return {
+        statusCode: 400, headers,
+        body: JSON.stringify({ error: 'Invalid JSON — request may exceed 6MB limit' }),
+      };
     }
 
-    const { borrowerName, loanId, files } = body;
+    const { borrowerName, loanId, files, folderId } = body;
 
     if (!files || files.length === 0) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'No files provided' }) };
     }
 
-    console.log(`Uploading ${files.length} file(s) for ${borrowerName}`);
+    // Use folderId from request if provided, otherwise fall back to env variable
+    // This allows Offer Agent to target "Offer Documents" folder
+    // while Mortgage Agent uses the default "Mortgage Applications" folder
+    const targetFolderId = folderId || PARENT_FOLDER_ID;
 
-    // ═══ OAuth2 authentication (as nationrealtor@gmail.com) ═══
+    // Authenticate with Google Drive using OAuth2
     const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
     oauth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
-
-    // Force a token refresh to verify credentials work
-    await oauth2Client.getAccessToken();
-    console.log('OAuth2 auth OK');
-
     const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
-    // Create subfolder for this loan
+    // Create a subfolder for this submission
     const today = new Date().toISOString().slice(0, 10);
     const folderName = `${borrowerName || 'Unknown'} — ${today} — ${loanId || 'pending'}`;
 
@@ -88,41 +90,28 @@ exports.handler = async (event) => {
       requestBody: {
         name: folderName,
         mimeType: 'application/vnd.google-apps.folder',
-        parents: [PARENT_FOLDER_ID],
+        parents: [targetFolderId],
       },
       fields: 'id, webViewLink',
     });
 
     const subfolderId = folderRes.data.id;
     const folderLink = folderRes.data.webViewLink;
-    console.log(`Created folder: ${folderName} (${subfolderId})`);
+    console.log(`Created subfolder: ${folderName} -> ${subfolderId} (parent: ${targetFolderId})`);
 
-    // Upload each file
+    // Upload each file to the subfolder
     const uploadedFiles = [];
     for (const file of files) {
       try {
-        if (!file.data) {
-          uploadedFiles.push({ name: file.name, error: 'No file data' });
-          continue;
-        }
-
         const buffer = Buffer.from(file.data, 'base64');
-        console.log(`File: ${file.name} | b64: ${file.data.length} | decoded: ${buffer.length} bytes`);
 
-        if (buffer.length === 0) {
-          uploadedFiles.push({ name: file.name, error: '0 bytes after decode' });
-          continue;
-        }
-
-        // Determine MIME type
         let mimeType = file.mimeType || 'application/octet-stream';
-        const n = file.name.toLowerCase();
+        const n = (file.name || '').toLowerCase();
         if (n.endsWith('.pdf')) mimeType = 'application/pdf';
         else if (n.match(/\.(jpg|jpeg)$/)) mimeType = 'image/jpeg';
         else if (n.endsWith('.png')) mimeType = 'image/png';
         else if (n.match(/\.(doc|docx)$/)) mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-        // Ensure extension
         let fileName = file.name;
         if (!fileName.match(/\.\w+$/)) {
           if (mimeType === 'application/pdf') fileName += '.pdf';
@@ -158,7 +147,7 @@ exports.handler = async (event) => {
     }
 
     const successCount = uploadedFiles.filter(f => !f.error).length;
-    console.log(`Done: ${successCount}/${files.length} uploaded`);
+    console.log(`Done: ${successCount}/${files.length} uploaded to folder ${targetFolderId}`);
 
     return {
       statusCode: 200, headers,

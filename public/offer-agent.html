@@ -425,6 +425,7 @@ async function submitOffer(){
           folderId:'1dP9SnHq5S8UUz7rgk6l75wLaTv9ERM0T'
         })
       });
+      if(!res.ok){const errText=await res.text();console.error('Upload response:',res.status,errText);throw new Error('Upload failed: '+res.status);}
       const result=await res.json();
       if(result.folderLink)driveLink=result.folderLink;
       await addAgent("📁 Documents uploaded successfully ✓");

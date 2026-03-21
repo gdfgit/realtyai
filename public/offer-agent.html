@@ -117,6 +117,9 @@ body{font-family:var(--font);background:var(--bg-page);color:var(--text);height:
 .send-btn{padding:13px 22px;border-radius:var(--radius);border:none;background:var(--bg-input);color:var(--text-light);font-size:14px;font-weight:700;cursor:default;font-family:var(--font);transition:all .25s}
 .send-btn.active{background:var(--red);color:#fff;cursor:pointer}
 .send-btn.active:hover{background:var(--red-dark);box-shadow:0 3px 12px rgba(227,24,55,.2)}
+.mic-btn{width:46px;height:46px;border-radius:50%;border:none;background:var(--red);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;box-shadow:0 2px 8px rgba(227,24,55,.2)}
+.mic-btn:hover{background:var(--red-dark);box-shadow:0 4px 14px rgba(227,24,55,.3)}
+.mic-btn.listening{animation:pulse 1s infinite;box-shadow:0 0 0 6px rgba(227,24,55,.15)}
 .skip-btn{padding:13px 14px;border-radius:var(--radius);border:1px solid var(--border-light);background:var(--bg);color:var(--text-light);font-size:12px;cursor:pointer;font-family:var(--font);transition:all .2s}
 .skip-btn:hover{border-color:var(--border);color:var(--text-secondary)}
 .legal-bar{font-size:10px;color:var(--text-light);margin-top:8px;text-align:center;line-height:1.4}
@@ -218,7 +221,8 @@ const SECTIONS=[
   {id:"review",title:"Review & Submit",icon:"🚀",review:true,fields:[]},
 ];
 
-const S={secIdx:0,fldIdx:0,msgs:[],data:{},typing:false,submitting:false,submitted:false,sidebarOpen:window.innerWidth>768};
+const S={secIdx:0,fldIdx:0,msgs:[],data:{},typing:false,submitting:false,submitted:false,sidebarOpen:window.innerWidth>768,listening:false};
+let recognition=null;
 
 function activeFields(si,d){const s=SECTIONS[si];if(!s||!s.fields)return[];return s.fields.filter(f=>!f.cond||f.cond(d));}
 function completedCount(){let c=0;for(let i=1;i<SECTIONS.length-1;i++){const af=activeFields(i,S.data).filter(f=>f.type!=='notice');if(af.length&&af.every(f=>!f.req||S.data[f.key]))c++;}return c;}
@@ -276,7 +280,7 @@ function renderInputBar(){
   if(sec&&(sec.review||sec.greeting))return'<div class="input-bar"><div class="legal-bar">Residential Purchase Agreement • For informational purposes only • Not legal advice</div></div>';
   const af=activeFields(S.secIdx,S.data),cf=af[S.fldIdx],isSelect=cf&&cf.type==='select',canSkip=cf&&!cf.req;
   if(isSelect)return'<div class="input-bar"><div class="legal-bar">Select an option above to continue</div></div>';
-  return`<div class="input-bar"><div class="input-row"><input class="chat-input" id="inp" placeholder="Type your answer..." onkeydown="if(event.key==='Enter')send()" autocomplete="off"/><button class="send-btn active" onclick="send()">Send</button>${canSkip?'<button class="skip-btn" onclick="skip()">Skip</button>':''}</div><div class="legal-bar">Your data is stored locally and used only to generate your offer document.</div></div>`;
+  return`<div class="input-bar"><div class="input-row"><input class="chat-input" id="inp" placeholder="Type your answer..." onkeydown="if(event.key==='Enter')send()" autocomplete="off"/><button class="send-btn active" onclick="send()">Send</button>${canSkip?'<button class="skip-btn" onclick="skip()">Skip</button>':''}</div><div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px"><button class="mic-btn ${S.listening?'listening':''}" onclick="toggleMic()" title="${S.listening?'Stop listening':'Tap to speak'}"><svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#fff"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M12 19v4m-4 0h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></button><span style="font-size:11px;color:${S.listening?'var(--red)':'var(--text-light)'};font-weight:${S.listening?'600':'400'}">${S.listening?'Listening... tap to stop':'or tap to speak'}</span></div></div>`;
 }
 
 function addAgent(text,delay=600){S.typing=true;render();return new Promise(r=>{setTimeout(()=>{const sec=SECTIONS[S.secIdx],af=sec?activeFields(S.secIdx,S.data):[],cf=af[S.fldIdx];if(cf&&cf.type==='select'&&cf.opts)S.msgs.push({type:'options',text,opts:cf.opts});else S.msgs.push({type:'agent',text});S.typing=false;render();r();},delay);});}
@@ -292,6 +296,24 @@ async function askNext(si,fi,d){
 }
 
 function send(){const inp=document.getElementById('inp');const v=inp?.value?.trim();if(!v)return;processInput(v);}
+// ═══ VOICE INPUT ═══
+function toggleMic(){
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){alert('Voice input is not supported in this browser. Use Chrome or Edge.');return;}
+  if(S.listening){if(recognition)recognition.stop();S.listening=false;render();return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR();
+  recognition.continuous=false;recognition.interimResults=false;recognition.lang='en-US';
+  S.listening=true;render();
+  recognition.onresult=(e)=>{
+    let transcript=e.results[0][0].transcript.trim();
+    S.listening=false;render();
+    // Auto-submit the spoken answer
+    setTimeout(()=>processInput(transcript),200);
+  };
+  recognition.onerror=()=>{S.listening=false;render();};
+  recognition.onend=()=>{S.listening=false;render();};
+  recognition.start();
+}
 function selOpt(v){processInput(v);}
 function skip(){addUser('(skipped)');S.fldIdx++;setTimeout(()=>askNext(S.secIdx,S.fldIdx,S.data),400);}
 

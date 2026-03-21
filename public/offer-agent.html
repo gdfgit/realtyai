@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Offer Agent — Nation Realtor</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#FFFFFF;--bg-page:#F8F7F4;--bg-sidebar:#FAFAF8;--bg-card:#FFFFFF;
+  --bg-input:#F5F5F3;--bg-hover:rgba(0,0,0,.02);
+  --red:#E31837;--red-light:#F04458;--red-dark:#C0141F;--red-bg:rgba(227,24,55,.06);--red-bg2:rgba(227,24,55,.1);
+  --gold:#B8860B;--gold-bg:rgba(184,134,11,.08);
+  --green:#1B8C4E;--green-bg:rgba(27,140,78,.08);
+  --dark:#1A1A2E;--text:#2D2D3A;--text-secondary:#6B6B7B;--text-light:#999;
+  --border:rgba(0,0,0,.08);--border-light:rgba(0,0,0,.05);
+  --shadow:0 1px 3px rgba(0,0,0,.06);--shadow-md:0 4px 16px rgba(0,0,0,.08);
+  --font:'DM Sans',system-ui,sans-serif;
+  --radius:12px;--radius-sm:8px;--radius-lg:16px;
+}
+body{font-family:var(--font);background:var(--bg-page);color:var(--text);height:100dvh;overflow:hidden;-webkit-font-smoothing:antialiased}
+.app{display:flex;height:100dvh}
+.sidebar{width:300px;display:flex;flex-direction:column;background:var(--bg-sidebar);border-right:1px solid var(--border);transition:width .3s ease,opacity .3s;overflow:hidden;flex-shrink:0}
+.sidebar.collapsed{width:0;opacity:0;pointer-events:none}
+.sb-back{display:flex;align-items:center;gap:8px;padding:14px 20px;background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;font-weight:600;font-family:var(--font);border-bottom:1px solid var(--border-light);width:100%;text-align:left;letter-spacing:.3px;transition:background .2s}
+.sb-back:hover{background:var(--red-bg)}
+.sb-back svg{width:16px;height:16px;flex-shrink:0}
+.sb-header{padding:24px 20px 16px;border-bottom:1px solid var(--border-light)}
+.sb-header .tag{font-size:10px;text-transform:uppercase;letter-spacing:2.5px;color:var(--red);font-weight:700}
+.sb-header h2{font-size:21px;font-weight:700;color:var(--dark);margin-top:6px;line-height:1.2}
+.sb-header .sub{font-size:12px;color:var(--text-light);margin-top:6px;line-height:1.4}
+.sb-prop{padding:14px 20px;border-bottom:1px solid var(--border-light);background:var(--gold-bg)}
+.sb-prop .prop-label{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--gold);font-weight:700;margin-bottom:6px}
+.sb-prop .prop-addr{font-size:13px;color:var(--dark);font-weight:600;line-height:1.4}
+.sb-prop .prop-price{font-size:17px;color:var(--gold);font-weight:700;margin-top:4px}
+.sb-progress{padding:16px 20px;border-bottom:1px solid var(--border-light)}
+.sb-progress .prog-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px}
+.sb-progress .prog-row span:first-child{color:var(--text-secondary)}
+.sb-progress .prog-row span:last-child{color:var(--red);font-weight:700}
+.prog-track{height:4px;background:rgba(0,0,0,.06);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--red),var(--red-light));border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.sb-sections{flex:1;overflow-y:auto;padding:8px 0}
+.sb-sec{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:default;transition:all .2s;border-left:3px solid transparent}
+.sb-sec.active{background:var(--red-bg);border-left-color:var(--red)}
+.sb-sec.done{opacity:.55}
+.sb-sec .sec-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;background:rgba(0,0,0,.04);flex-shrink:0}
+.sb-sec.active .sec-icon{background:var(--red-bg2)}
+.sb-sec.done .sec-icon{background:var(--green-bg)}
+.sb-sec .sec-label{font-size:13px;font-weight:500;color:var(--text-secondary)}
+.sb-sec.active .sec-label{color:var(--dark);font-weight:600}
+.sb-sec.done .sec-label{color:var(--green)}
+.sb-sec .sec-check{margin-left:auto;font-size:12px;color:var(--green);opacity:0;transition:opacity .2s}
+.sb-sec.done .sec-check{opacity:1}
+.sb-legal{padding:14px 20px;border-top:1px solid var(--border-light);font-size:10px;color:var(--text-light);line-height:1.5}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg)}
+.topbar{display:flex;align-items:center;gap:12px;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0}
+.menu-btn{display:none;background:none;border:1px solid var(--border);border-radius:var(--radius-sm);width:36px;height:36px;color:var(--text-secondary);cursor:pointer;font-size:16px;transition:all .2s}
+.menu-btn:hover{border-color:var(--red);color:var(--red)}
+.topbar .agent-badge{display:flex;align-items:center;gap:8px}
+.topbar .agent-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(27,140,78,.35);flex-shrink:0}
+.topbar .agent-name{font-size:14px;font-weight:600;color:var(--dark)}
+.topbar .agent-role{font-size:12px;color:var(--text-light);margin-left:4px}
+.topbar-actions{margin-left:auto;display:flex;gap:8px}
+.topbar-actions button{padding:6px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-secondary);font-size:12px;cursor:pointer;font-family:var(--font);transition:all .2s}
+.topbar-actions button:hover{border-color:var(--red);color:var(--red)}
+.chat-area{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth;background:var(--bg-page)}
+.msg{display:flex;gap:10px;animation:fadeIn .3s ease-out;max-width:720px}
+.msg.agent{align-self:flex-start}
+.msg.user{align-self:flex-end;flex-direction:row-reverse}
+.avatar{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;font-weight:700}
+.msg.agent .avatar{background:var(--red-bg2);color:var(--red);border:1px solid rgba(227,24,55,.15)}
+.msg.user .avatar{background:var(--dark);color:#fff}
+.bubble{padding:12px 16px;border-radius:var(--radius-lg);font-size:14px;line-height:1.65;max-width:540px;word-wrap:break-word}
+.msg.agent .bubble{background:var(--bg-card);border:1px solid var(--border);color:var(--text);box-shadow:var(--shadow);border-top-left-radius:4px}
+.msg.user .bubble{background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;border-top-right-radius:4px}
+.bubble strong{color:var(--red);font-weight:600}
+.msg.user .bubble strong{color:#FFD0D0}
+.bubble em{color:var(--gold);font-style:normal;font-weight:500}
+.typing{display:flex;gap:4px;padding:16px;align-self:flex-start}
+.typing span{width:6px;height:6px;background:var(--red);border-radius:50%;animation:pulse 1.4s infinite}
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+.opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.opt-btn{padding:8px 18px;border-radius:20px;border:1px solid rgba(227,24,55,.25);background:var(--red-bg);color:var(--red);font-size:13px;cursor:pointer;font-family:var(--font);transition:all .2s;font-weight:500}
+.opt-btn:hover{background:var(--red);border-color:var(--red);color:#fff;transform:translateY(-1px);box-shadow:0 3px 12px rgba(227,24,55,.2)}
+.review{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-top:8px;max-width:680px;animation:fadeIn .4s;box-shadow:var(--shadow-md)}
+.review h3{font-size:17px;font-weight:700;color:var(--dark);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.rg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.rv-item{padding:10px 14px;background:var(--bg-page);border-radius:var(--radius-sm);border:1px solid var(--border-light)}
+.rv-item .rv-label{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-light);margin-bottom:3px}
+.rv-item .rv-val{font-size:13px;color:var(--dark);font-weight:500}
+.rv-section{font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:2px;padding:10px 0 4px;grid-column:1/-1;border-top:1px solid var(--border);margin-top:4px}
+.submit-btn{width:100%;padding:15px;border-radius:var(--radius);border:none;background:linear-gradient(135deg,var(--red),var(--red-light));color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font);transition:all .3s;letter-spacing:.3px;margin-top:8px}
+.submit-btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(227,24,55,.25)}
+.submit-btn:disabled{opacity:.5;cursor:default;transform:none;box-shadow:none}
+.edit-btn{padding:8px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text-secondary);font-size:12px;cursor:pointer;font-family:var(--font);transition:all .2s;margin-top:8px}
+.edit-btn:hover{border-color:var(--red);color:var(--red)}
+.success-card{background:var(--green-bg);border:1px solid rgba(27,140,78,.2);border-radius:var(--radius-lg);padding:28px;text-align:center;animation:fadeIn .5s}
+.success-card .check{width:56px;height:56px;border-radius:50%;background:rgba(27,140,78,.1);border:2px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 16px}
+.success-card h3{font-size:19px;font-weight:700;color:var(--green);margin-bottom:8px}
+.success-card p{font-size:13px;color:var(--text-secondary);line-height:1.6}
+.success-actions{display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+.success-actions button{padding:10px 20px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);transition:all .2s}
+.btn-primary{border:none;background:var(--red);color:#fff}
+.btn-primary:hover{background:var(--red-dark)}
+.btn-outline{border:1px solid var(--border);background:var(--bg);color:var(--text-secondary)}
+.btn-outline:hover{border-color:var(--red);color:var(--red)}
+.input-bar{padding:16px 24px;border-top:1px solid var(--border);background:var(--bg);flex-shrink:0}
+.input-row{display:flex;gap:10px;max-width:720px}
+.chat-input{flex:1;padding:13px 18px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-input);color:var(--dark);font-size:14px;outline:none;font-family:var(--font);transition:border-color .2s}
+.chat-input:focus{border-color:rgba(227,24,55,.35);box-shadow:0 0 0 3px rgba(227,24,55,.08)}
+.chat-input::placeholder{color:var(--text-light)}
+.send-btn{padding:13px 22px;border-radius:var(--radius);border:none;background:var(--bg-input);color:var(--text-light);font-size:14px;font-weight:700;cursor:default;font-family:var(--font);transition:all .25s}
+.send-btn.active{background:var(--red);color:#fff;cursor:pointer}
+.send-btn.active:hover{background:var(--red-dark);box-shadow:0 3px 12px rgba(227,24,55,.2)}
+.skip-btn{padding:13px 14px;border-radius:var(--radius);border:1px solid var(--border-light);background:var(--bg);color:var(--text-light);font-size:12px;cursor:pointer;font-family:var(--font);transition:all .2s}
+.skip-btn:hover{border-color:var(--border);color:var(--text-secondary)}
+.legal-bar{font-size:10px;color:var(--text-light);margin-top:8px;text-align:center;line-height:1.4}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,80%,100%{opacity:.25;transform:scale(.8)}40%{opacity:1;transform:scale(1.1)}}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(0,0,0,.12);border-radius:3px}
+@media(max-width:768px){
+  .sidebar{position:fixed;z-index:100;height:100dvh;width:280px}
+  .sidebar.collapsed{width:0}
+  .menu-btn{display:flex;align-items:center;justify-content:center}
+  .rg{grid-template-columns:1fr!important}
+  .bubble{max-width:85%!important}
+  .topbar-actions{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script>
+const AGENT_INFO={broker:"Axen Realty / LPT Realty",agentName:"Giancarlo Di Fazio",license:"S.0197614",phone:"(949) 312-0103",email:"gdifazio@nexalending.com"};
+const SHARED_CTX={propertyAddress:"",propertyCity:"",propertyState:"NV",propertyZip:"",listingPrice:"",apn:"",buyerName:"",buyerPhone:"",buyerEmail:"",loanType:"",preapprovalAmount:""};
+window.addEventListener('message',(e)=>{if(e.data?.type==='SHARED_CONTEXT'){Object.assign(SHARED_CTX,e.data.payload);init();}});
+
+const SECTIONS=[
+  {id:"welcome",title:"Welcome",icon:"👋",fields:[],greeting:true},
+  {id:"buyer",title:"Buyer Information",icon:"👤",fields:[
+    {key:"buyerName",label:"Buyer Full Name(s)",type:"text",req:true,q:"Let's prepare your offer! What is the **full legal name** of the buyer(s)?",prefill:()=>SHARED_CTX.buyerName},
+    {key:"addlBuyers",label:"Additional Buyers?",type:"select",opts:["No","Yes"],req:true,q:"Are there additional buyers on this offer?"},
+    {key:"addlBuyerNames",label:"Additional Buyer Names",type:"text",req:false,cond:d=>d.addlBuyers==="Yes",q:"Please list the additional buyer name(s)."},
+    {key:"vestingType",label:"Vesting",type:"select",opts:["Sole & Separate","Community Property","Joint Tenancy","Tenants in Common","To Be Decided at COE"],req:true,q:"How will the buyer(s) hold title (vesting)?"},
+  ]},
+  {id:"property",title:"Property Details",icon:"🏠",fields:[
+    {key:"propAddress",label:"Property Address",type:"text",req:true,q:"What is the **property address**?",prefill:()=>SHARED_CTX.propertyAddress},
+    {key:"propCity",label:"City",type:"text",req:true,q:"City?",prefill:()=>SHARED_CTX.propertyCity},
+    {key:"propState",label:"State",type:"text",req:true,q:"State?",prefill:()=>SHARED_CTX.propertyState||"NV"},
+    {key:"propZip",label:"ZIP Code",type:"text",req:true,q:"ZIP Code?",prefill:()=>SHARED_CTX.propertyZip},
+    {key:"apn",label:"APN (Assessor's Parcel Number)",type:"text",req:false,q:"Do you have the APN? If not, you can skip.",prefill:()=>SHARED_CTX.apn},
+    {key:"propType",label:"Property Type",type:"select",opts:["Single Family","Condo/Townhome","Manufactured/Mobile","Multi-Family","Vacant Land","Other"],req:true,q:"What type of property is this?"},
+    {key:"personalProp",label:"Personal Property Included",type:"text",req:false,q:"Any personal property included (appliances, fixtures)? Skip if none."},
+  ]},
+  {id:"price",title:"Purchase Price & Terms",icon:"💰",fields:[
+    {key:"offerPrice",label:"Offer Price",type:"text",req:true,q:"What is your **offer price**? (Dollar amount)"},
+    {key:"earnestDeposit",label:"Earnest Money Deposit",type:"text",req:true,q:"How much **earnest money** will you deposit?"},
+    {key:"emdForm",label:"EMD Form",type:"select",opts:["Personal Check","Cashier's Check","Wire Transfer","Other"],req:true,q:"What form will the earnest money deposit take?"},
+    {key:"emdHolder",label:"EMD Holder",type:"select",opts:["Title/Escrow Company","Buyer's Broker","Seller's Broker","Other"],req:true,q:"Who will hold the earnest money deposit?"},
+    {key:"emdDays",label:"Days to Deliver EMD",type:"text",req:true,q:"How many **business days** after acceptance to deliver EMD? (Standard is 5)"},
+    {key:"addlDeposit",label:"Additional Deposit",type:"text",req:false,q:"Additional deposit? Enter amount or skip."},
+  ]},
+  {id:"financing",title:"Financing",icon:"🏦",fields:[
+    {key:"financeType",label:"Financing Type",type:"select",opts:["Conventional","FHA","VA","USDA","Cash (No Financing)","Seller Financing","Other"],req:true,q:"How will this purchase be financed?"},
+    {key:"loanAmount",label:"Loan Amount",type:"text",req:false,cond:d=>d.financeType&&d.financeType!=="Cash (No Financing)",q:"What is the anticipated **loan amount**?"},
+    {key:"downPayment",label:"Down Payment",type:"text",req:false,cond:d=>d.financeType&&d.financeType!=="Cash (No Financing)",q:"Down payment amount?"},
+    {key:"loanDays",label:"Days for Loan Approval",type:"text",req:false,cond:d=>d.financeType&&d.financeType!=="Cash (No Financing)",q:"Calendar days to obtain loan approval? (Standard is 21)"},
+    {key:"preapproval",label:"Pre-Approval Status",type:"select",opts:["Pre-Approved","Pre-Qualified","Not Yet Applied","N/A — Cash Offer"],req:true,q:"Buyer's **pre-approval status**?"},
+    {key:"proofOfFunds",label:"Proof of Funds?",type:"select",opts:["Yes","Will provide within 3 days","No"],req:false,cond:d=>d.financeType==="Cash (No Financing)",q:"Will proof of funds be attached?"},
+    {type:"notice",msg:"*If financing falls through, buyer may be entitled to EMD return under Nevada law, subject to agreement terms.*"},
+  ]},
+  {id:"closing",title:"Closing & Possession",icon:"📅",fields:[
+    {key:"closeDate",label:"Closing Date",type:"text",req:true,q:"Target **closing date**? (MM/DD/YYYY)"},
+    {key:"closeDays",label:"Or Days After Acceptance",type:"text",req:false,q:"Or **days after acceptance** for closing. Skip if you entered a date."},
+    {key:"escrowCompany",label:"Title/Escrow Company",type:"text",req:false,q:"Preferred title/escrow company? (Skip if no preference)"},
+    {key:"possession",label:"Possession",type:"select",opts:["At Close of Escrow (COE)","Seller Rent-Back After COE","Buyer Early Possession","Other"],req:true,q:"When does buyer take **possession**?"},
+    {key:"rentbackDays",label:"Rent-Back Days",type:"text",req:false,cond:d=>d.possession==="Seller Rent-Back After COE",q:"How many days of seller rent-back?"},
+    {key:"rentbackRate",label:"Rent-Back Daily Rate",type:"text",req:false,cond:d=>d.possession==="Seller Rent-Back After COE",q:"Daily rate for rent-back?"},
+  ]},
+  {id:"contingencies",title:"Contingencies",icon:"🔍",fields:[
+    {key:"inspectionDays",label:"Inspection Period (Days)",type:"text",req:true,q:"Calendar days for **inspection contingency**? (Standard is 10)"},
+    {key:"inspectionType",label:"Inspections Planned",type:"select",opts:["General Home Inspection","General + Specialized","Buyer to Determine","Waiving Inspection"],req:true,q:"What inspections will buyer conduct?"},
+    {key:"appraisalContingency",label:"Appraisal Contingency",type:"select",opts:["Yes — Standard","Yes — with Gap Coverage","Waived"],req:true,q:"**Appraisal contingency**?"},
+    {key:"appraisalGap",label:"Appraisal Gap Coverage",type:"text",req:false,cond:d=>d.appraisalContingency==="Yes — with Gap Coverage",q:"Gap coverage amount? (Max buyer pays above appraised value)"},
+    {key:"saleContingency",label:"Sale of Buyer's Property",type:"select",opts:["No","Yes — Must Sell First","Yes — Must Close First"],req:true,q:"Contingent on **sale of buyer's current property**?"},
+    {key:"saleContAddress",label:"Property to Sell Address",type:"text",req:false,cond:d=>d.saleContingency&&d.saleContingency!=="No",q:"Address of property buyer needs to sell?"},
+    {type:"notice",msg:"*Nevada law requires sellers to provide a Seller's Real Property Disclosure. Buyer has 5 days to review after receipt.*"},
+  ]},
+  {id:"costs",title:"Costs & Fees",icon:"💳",fields:[
+    {key:"sellerConcession",label:"Seller Concession",type:"select",opts:["None","Percentage of Price","Fixed Dollar Amount"],req:true,q:"Requesting **seller concessions** toward closing costs?"},
+    {key:"concessionAmount",label:"Concession Amount",type:"text",req:false,cond:d=>d.sellerConcession&&d.sellerConcession!=="None",q:"Concession amount? (% or $)"},
+    {key:"homeWarranty",label:"Home Warranty",type:"select",opts:["Buyer Pays","Seller Pays","Split 50/50","None / Waived"],req:true,q:"Who pays for **home warranty**?"},
+    {key:"warrantyBudget",label:"Warranty Budget",type:"text",req:false,cond:d=>d.homeWarranty&&d.homeWarranty!=="None / Waived",q:"Max warranty budget? (Standard $500–$700)"},
+    {key:"titleInsurance",label:"Title Insurance Paid By",type:"select",opts:["Seller (Standard in NV)","Buyer","Split 50/50"],req:true,q:"Who pays **title insurance**? (Seller is NV standard)"},
+    {key:"escrowFees",label:"Escrow Fees Paid By",type:"select",opts:["Split 50/50 (Standard in NV)","Buyer","Seller"],req:true,q:"Who pays **escrow fees**? (Split is NV standard)"},
+  ]},
+  {id:"additional",title:"Additional Terms",icon:"📝",fields:[
+    {key:"offerExpiry",label:"Offer Expiration",type:"text",req:true,q:"When does this offer **expire**? (e.g. '03/25/2026 at 5:00 PM')"},
+    {key:"escalationClause",label:"Escalation Clause",type:"select",opts:["No","Yes"],req:false,q:"Include an **escalation clause**?"},
+    {key:"escalationMax",label:"Escalation Max Price",type:"text",req:false,cond:d=>d.escalationClause==="Yes",q:"**Maximum escalation price**?"},
+    {key:"escalationIncrement",label:"Escalation Increment",type:"text",req:false,cond:d=>d.escalationClause==="Yes",q:"Escalation increment? (Amount to exceed competing offers by)"},
+    {key:"additionalTerms",label:"Additional Terms",type:"text",req:false,q:"Any **additional terms or conditions**? (Skip if none)"},
+    {key:"buyerLetter",label:"Buyer Letter?",type:"select",opts:["No","Yes — I'll provide it","Draft one for me"],req:false,q:"Include a **personal letter** to the seller?"},
+  ]},
+  {id:"agents",title:"Agent & Brokerage",icon:"🤝",fields:[
+    {type:"notice",msg:`Your buyer's agent: **${AGENT_INFO.agentName}** at **${AGENT_INFO.broker}** (Lic# ${AGENT_INFO.license})`},
+    {key:"listingAgentName",label:"Listing Agent Name",type:"text",req:false,q:"**Listing agent's name**? (Skip if unknown)"},
+    {key:"listingBrokerage",label:"Listing Brokerage",type:"text",req:false,q:"Listing brokerage? (Skip if unknown)"},
+    {key:"listingAgentEmail",label:"Listing Agent Email",type:"text",req:false,q:"Listing agent's **email**? (Skip if unknown)"},
+    {key:"listingAgentPhone",label:"Listing Agent Phone",type:"text",req:false,q:"Listing agent's **phone**? (Skip if unknown)"},
+    {key:"deliveryMethod",label:"Offer Delivery Method",type:"select",opts:["Email","MLS Portal","Fax","Other"],req:true,q:"How should the offer be **delivered**?"},
+  ]},
+  {id:"review",title:"Review & Submit",icon:"🚀",review:true,fields:[]},
+];
+
+const S={secIdx:0,fldIdx:0,msgs:[],data:{},typing:false,submitting:false,submitted:false,sidebarOpen:window.innerWidth>768};
+
+function activeFields(si,d){const s=SECTIONS[si];if(!s||!s.fields)return[];return s.fields.filter(f=>!f.cond||f.cond(d));}
+function completedCount(){let c=0;for(let i=1;i<SECTIONS.length-1;i++){const af=activeFields(i,S.data).filter(f=>f.type!=='notice');if(af.length&&af.every(f=>!f.req||S.data[f.key]))c++;}return c;}
+function totalSections(){return SECTIONS.length-2;}
+function progressPct(){return Math.round((completedCount()/totalSections())*100);}
+function fmt(v){if(!v)return'—';const n=parseFloat(v.replace(/[^0-9.]/g,''));if(!isNaN(n)&&n>999)return'$'+n.toLocaleString();return v;}
+function md(t){return t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>');}
+
+function render(){
+  document.getElementById('app').innerHTML=`
+    ${renderSidebar()}
+    <div class="main">${renderTopbar()}
+      <div class="chat-area" id="chatArea">${renderMessages()}</div>
+      ${renderInputBar()}</div>`;
+  const a=document.getElementById('chatArea');if(a)a.scrollTop=a.scrollHeight;
+  const inp=document.getElementById('inp');if(inp&&window.innerWidth>768)inp.focus();
+}
+function renderSidebar(){
+  const p=progressPct();
+  return`<div class="sidebar ${S.sidebarOpen?'':'collapsed'}">
+    <button class="sb-back" onclick="goBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m0 0l7 7m-7-7l7-7"/></svg>Back to Dashboard</button>
+    <div class="sb-header"><div class="tag">Offer Agent</div><h2>Submit an Offer</h2><div class="sub">GLVAR Residential Purchase Agreement • Nevada</div></div>
+    ${SHARED_CTX.propertyAddress?`<div class="sb-prop"><div class="prop-label">Selected Property</div><div class="prop-addr">${SHARED_CTX.propertyAddress}</div>${SHARED_CTX.listingPrice?`<div class="prop-price">${fmt(SHARED_CTX.listingPrice)}</div>`:''}</div>`:''}
+    <div class="sb-progress"><div class="prog-row"><span>Progress</span><span>${p}%</span></div><div class="prog-track"><div class="prog-fill" style="width:${p}%"></div></div></div>
+    <div class="sb-sections">${SECTIONS.filter(s=>!s.greeting).map((sec,i)=>{const ri=i+1,done=!sec.review&&ri<S.secIdx,active=ri===S.secIdx;return`<div class="sb-sec ${active?'active':''} ${done?'done':''}"><div class="sec-icon">${sec.icon}</div><div class="sec-label">${sec.title}</div><div class="sec-check">✓</div></div>`;}).join('')}</div>
+    <div class="sb-legal">Powered by Nation Realtor<br>${AGENT_INFO.broker}<br>This tool does not constitute legal advice.</div></div>`;
+}
+function renderTopbar(){
+  return`<div class="topbar"><button class="menu-btn" onclick="toggleSidebar()">☰</button><div class="agent-badge"><div class="agent-dot"></div><span class="agent-name">Offer Agent</span><span class="agent-role">• Residential Purchase Agreement</span></div><div class="topbar-actions"><button onclick="resetAgent()">↺ Start Over</button></div></div>`;
+}
+function renderMessages(){
+  let h='';
+  for(const m of S.msgs){
+    if(m.type==='agent')h+=`<div class="msg agent"><div class="avatar">OA</div><div class="bubble">${md(m.text)}</div></div>`;
+    else if(m.type==='user')h+=`<div class="msg user"><div class="avatar">U</div><div class="bubble">${md(m.text)}</div></div>`;
+    else if(m.type==='options')h+=`<div class="msg agent"><div class="avatar">OA</div><div><div class="bubble">${md(m.text)}</div><div class="opts">${m.opts.map(o=>`<button class="opt-btn" onclick="selOpt('${o.replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div></div></div>`;
+  }
+  if(S.typing)h+=`<div class="typing"><span></span><span></span><span></span></div>`;
+  const sec=SECTIONS[S.secIdx];if(sec&&sec.review&&!S.typing)h+=renderReview();
+  return h;
+}
+function renderReview(){
+  if(S.submitted)return renderSuccess();
+  let h='<div class="review"><h3>📋 Offer Summary</h3><div class="rg">';
+  for(let i=1;i<SECTIONS.length-1;i++){const sec=SECTIONS[i],af=activeFields(i,S.data).filter(f=>f.type!=='notice'),filled=af.filter(f=>S.data[f.key]);if(!filled.length)continue;h+=`<div class="rv-section">${sec.icon} ${sec.title}</div>`;for(const f of filled)h+=`<div class="rv-item"><div class="rv-label">${f.label}</div><div class="rv-val">${fmt(S.data[f.key])}</div></div>`;}
+  h+='</div>';h+=`<button class="submit-btn" ${S.submitting?'disabled':''} onclick="submitOffer()">${S.submitting?'Generating Purchase Agreement...':'🚀 Generate & Submit Offer'}</button>`;
+  h+=`<button class="edit-btn" onclick="editOffer()">✏️ Edit Responses</button></div>`;return h;
+}
+function renderSuccess(){
+  return`<div class="success-card"><div class="check">✓</div><h3>Offer Generated Successfully!</h3><p>Your Residential Purchase Agreement is ready for review and signature.</p><p style="margin-top:12px;font-size:12px;color:var(--text-light)"><strong style="color:var(--dark)">Next Steps:</strong><br>1. Review the completed RPA<br>2. E-sign via DocuSign<br>3. Agent delivers to listing agent<br>4. Await seller response</p><div class="success-actions"><button class="btn-primary" onclick="alert('DocuSign integration coming soon')">📝 Sign with DocuSign</button><button class="btn-outline" onclick="alert('PDF download coming soon')">📄 Download PDF</button><button class="btn-outline" onclick="goBack()">← Dashboard</button></div></div>`;
+}
+function renderInputBar(){
+  const sec=SECTIONS[S.secIdx];
+  if(sec&&(sec.review||sec.greeting))return'<div class="input-bar"><div class="legal-bar">GLVAR Residential Purchase Agreement • For informational purposes only • Not legal advice</div></div>';
+  const af=activeFields(S.secIdx,S.data),cf=af[S.fldIdx],isSelect=cf&&cf.type==='select',canSkip=cf&&!cf.req;
+  if(isSelect)return'<div class="input-bar"><div class="legal-bar">Select an option above to continue</div></div>';
+  return`<div class="input-bar"><div class="input-row"><input class="chat-input" id="inp" placeholder="Type your answer..." onkeydown="if(event.key==='Enter')send()" autocomplete="off"/><button class="send-btn active" onclick="send()">Send</button>${canSkip?'<button class="skip-btn" onclick="skip()">Skip</button>':''}</div><div class="legal-bar">Your data is stored locally and used only to generate your offer document.</div></div>`;
+}
+
+function addAgent(text,delay=600){S.typing=true;render();return new Promise(r=>{setTimeout(()=>{const sec=SECTIONS[S.secIdx],af=sec?activeFields(S.secIdx,S.data):[],cf=af[S.fldIdx];if(cf&&cf.type==='select'&&cf.opts)S.msgs.push({type:'options',text,opts:cf.opts});else S.msgs.push({type:'agent',text});S.typing=false;render();r();},delay);});}
+function addUser(t){S.msgs.push({type:'user',text:t});render();}
+
+async function askNext(si,fi,d){
+  const af=activeFields(si,d);
+  if(fi>=af.length){const nsi=si+1;if(nsi>=SECTIONS.length){S.secIdx=SECTIONS.length-1;render();return;}const ns=SECTIONS[nsi];if(ns.review){await addAgent("You've completed all sections! Here's your **offer summary** for review.");S.secIdx=nsi;render();return;}await addAgent(`Moving on to **${ns.icon} ${ns.title}**...`,400);S.secIdx=nsi;S.fldIdx=0;render();setTimeout(()=>askNext(nsi,0,d),800);return;}
+  const f=af[fi];
+  if(f.type==='notice'){await addAgent(f.msg,400);S.fldIdx=fi+1;render();setTimeout(()=>askNext(si,fi+1,d),600);return;}
+  if(f.prefill){const pv=f.prefill();if(pv){S.data[f.key]=pv;await addAgent(f.q);await addAgent(`Pre-filled: **${pv}** ✓`,300);S.fldIdx=fi+1;render();setTimeout(()=>askNext(si,fi+1,d),600);return;}}
+  await addAgent(f.q);S.fldIdx=fi;render();
+}
+
+function send(){const inp=document.getElementById('inp');const v=inp?.value?.trim();if(!v)return;processInput(v);}
+function selOpt(v){processInput(v);}
+function skip(){addUser('(skipped)');S.fldIdx++;setTimeout(()=>askNext(S.secIdx,S.fldIdx,S.data),400);}
+
+async function processInput(v){
+  const af=activeFields(S.secIdx,S.data),cf=af[S.fldIdx];addUser(v);
+  if(!cf)return;
+  if(v.toLowerCase()==='skip'&&!cf.req){S.fldIdx++;setTimeout(()=>askNext(S.secIdx,S.fldIdx,S.data),400);return;}
+  S.data[cf.key]=v;await addAgent(`**${cf.label}**: ${v} ✓`,300);
+  const naf=activeFields(S.secIdx,S.data),nfi=S.fldIdx+1;
+  if(nfi<naf.length){S.fldIdx=nfi;setTimeout(()=>askNext(S.secIdx,nfi,S.data),400);}
+  else{const nsi=S.secIdx+1;if(nsi<SECTIONS.length){const ns=SECTIONS[nsi];if(ns.review){await addAgent("You've completed all sections! Here's your **offer summary** for review.");S.secIdx=nsi;render();}else{await addAgent(`Moving on to **${ns.icon} ${ns.title}**...`,400);S.secIdx=nsi;S.fldIdx=0;render();setTimeout(()=>askNext(nsi,0,S.data),800);}}}
+}
+
+async function submitOffer(){S.submitting=true;render();await addAgent("Generating your Residential Purchase Agreement...");await new Promise(r=>setTimeout(r,1500));await addAgent("Compiling all sections into GLVAR RPA format...");await new Promise(r=>setTimeout(r,1500));S.submitted=true;S.submitting=false;await addAgent("🎉 **Offer generated successfully!** Your RPA is ready for signature and delivery.");render();}
+function editOffer(){S.secIdx=1;S.fldIdx=0;S.msgs.push({type:'agent',text:"Let's review — type a correction or Send to keep."});render();setTimeout(()=>askNext(1,0,S.data),600);}
+
+function goBack(){window.parent.postMessage({type:'NAVIGATE',to:'dashboard'},'*');}
+function toggleSidebar(){S.sidebarOpen=!S.sidebarOpen;render();}
+function resetAgent(){if(!confirm('Start over? All data will be cleared.'))return;Object.assign(S,{secIdx:0,fldIdx:0,msgs:[],data:{},typing:false,submitting:false,submitted:false});init();}
+
+async function init(){
+  render();
+  await addAgent(`Welcome to the **Offer Agent** by Nation Realtor.`,800);
+  await addAgent(`I'll guide you through the **GLVAR Residential Purchase Agreement** — Nevada's standard offer form.`,600);
+  await addAgent(`Your buyer's agent is **${AGENT_INFO.agentName}** at **${AGENT_INFO.broker}**.`,500);
+  if(SHARED_CTX.propertyAddress)await addAgent(`Making an offer on **${SHARED_CTX.propertyAddress}** listed at **${fmt(SHARED_CTX.listingPrice)}**.`,500);
+  await addAgent(`Let's begin with **${SECTIONS[1].icon} ${SECTIONS[1].title}**...`,400);
+  S.secIdx=1;S.fldIdx=0;render();setTimeout(()=>askNext(1,0,S.data),800);
+}
+init();
+</script>
+</body>
+</html>

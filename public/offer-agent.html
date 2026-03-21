@@ -68,8 +68,11 @@ body{font-family:var(--font);background:var(--bg-page);color:var(--text);height:
 .msg{display:flex;gap:10px;animation:fadeIn .3s ease-out;max-width:720px}
 .msg.agent{align-self:flex-start}
 .msg.user{align-self:flex-end;flex-direction:row-reverse}
-.avatar{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;font-weight:700}
-.msg.agent .avatar{background:var(--red-bg2);color:var(--red);border:1px solid rgba(227,24,55,.15)}
+.avatar{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;font-weight:700;overflow:hidden}
+.msg.agent .avatar{background:var(--red);padding:0;border:none}
+.msg.agent .avatar img{width:100%;height:100%;object-fit:cover;border-radius:10px}
+.sb-logo{display:flex;justify-content:center;padding:20px 20px 0}
+.sb-logo img{width:64px;height:64px;border-radius:14px;box-shadow:0 4px 16px rgba(227,24,55,.2)}
 .msg.user .avatar{background:var(--dark);color:#fff}
 .bubble{padding:12px 16px;border-radius:var(--radius-lg);font-size:14px;line-height:1.65;max-width:540px;word-wrap:break-word}
 .msg.agent .bubble{background:var(--bg-card);border:1px solid var(--border);color:var(--text);box-shadow:var(--shadow);border-top-left-radius:4px}
@@ -133,7 +136,7 @@ body{font-family:var(--font);background:var(--bg-page);color:var(--text);height:
 <body>
 <div class="app" id="app"></div>
 <script>
-const AGENT_INFO={broker:"Axen Realty / LPT Realty",agentName:"Giancarlo Di Fazio",license:"S.0197614",phone:"(949) 312-0103",email:"gdifazio@nexalending.com"};
+const AGENT_INFO={broker:"Axen Realty",agentName:"Giancarlo Di Fazio",license:"DRE 02153044 | NV S.0185040",phone:"(949) 312-0103",email:"gdifazio@nexalending.com"};
 const SHARED_CTX={propertyAddress:"",propertyCity:"",propertyState:"NV",propertyZip:"",listingPrice:"",apn:"",buyerName:"",buyerPhone:"",buyerEmail:"",loanType:"",preapprovalAmount:""};
 window.addEventListener('message',(e)=>{if(e.data?.type==='SHARED_CONTEXT'){Object.assign(SHARED_CTX,e.data.payload);init();}});
 
@@ -237,11 +240,12 @@ function renderSidebar(){
   const p=progressPct();
   return`<div class="sidebar ${S.sidebarOpen?'':'collapsed'}">
     <button class="sb-back" onclick="goBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m0 0l7 7m-7-7l7-7"/></svg>Back to Dashboard</button>
-    <div class="sb-header"><div class="tag">Offer Agent</div><h2>Submit an Offer</h2><div class="sub">GLVAR Residential Purchase Agreement • Nevada</div></div>
+    <div class="sb-logo"><img src="/Realty_AI_logo.png" alt="Realty AI" /></div>
+    <div class="sb-header"><div class="tag">Offer Agent</div><h2>Submit an Offer</h2><div class="sub">Residential Purchase Agreement • Nevada</div></div>
     ${SHARED_CTX.propertyAddress?`<div class="sb-prop"><div class="prop-label">Selected Property</div><div class="prop-addr">${SHARED_CTX.propertyAddress}</div>${SHARED_CTX.listingPrice?`<div class="prop-price">${fmt(SHARED_CTX.listingPrice)}</div>`:''}</div>`:''}
     <div class="sb-progress"><div class="prog-row"><span>Progress</span><span>${p}%</span></div><div class="prog-track"><div class="prog-fill" style="width:${p}%"></div></div></div>
     <div class="sb-sections">${SECTIONS.filter(s=>!s.greeting).map((sec,i)=>{const ri=i+1,done=!sec.review&&ri<S.secIdx,active=ri===S.secIdx;return`<div class="sb-sec ${active?'active':''} ${done?'done':''}"><div class="sec-icon">${sec.icon}</div><div class="sec-label">${sec.title}</div><div class="sec-check">✓</div></div>`;}).join('')}</div>
-    <div class="sb-legal">Powered by Nation Realtor<br>${AGENT_INFO.broker}<br>This tool does not constitute legal advice.</div></div>`;
+    <div class="sb-legal"><a href="https://www.nationrealtor.com" target="_blank" style="color:var(--red);text-decoration:none;font-weight:600">nationrealtor.com</a> Powered by Axen Realty<br>Giancarlo DiFazio<br>Realtor Lic. DRE 02153044 | NV S.0185040<br>T. 949-312-0103<br>gdifaziorealtor@gmail.com</div></div>`;
 }
 function renderTopbar(){
   return`<div class="topbar"><button class="menu-btn" onclick="toggleSidebar()">☰</button><div class="agent-badge"><div class="agent-dot"></div><span class="agent-name">Offer Agent</span><span class="agent-role">• Residential Purchase Agreement</span></div><div class="topbar-actions"><button onclick="resetAgent()">↺ Start Over</button></div></div>`;
@@ -249,9 +253,9 @@ function renderTopbar(){
 function renderMessages(){
   let h='';
   for(const m of S.msgs){
-    if(m.type==='agent')h+=`<div class="msg agent"><div class="avatar">OA</div><div class="bubble">${md(m.text)}</div></div>`;
+    if(m.type==='agent')h+=`<div class="msg agent"><div class="avatar"><img src="/Realty_AI_logo.png" alt="AI"/></div><div class="bubble">${md(m.text)}</div></div>`;
     else if(m.type==='user')h+=`<div class="msg user"><div class="avatar">U</div><div class="bubble">${md(m.text)}</div></div>`;
-    else if(m.type==='options')h+=`<div class="msg agent"><div class="avatar">OA</div><div><div class="bubble">${md(m.text)}</div><div class="opts">${m.opts.map(o=>`<button class="opt-btn" onclick="selOpt('${o.replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div></div></div>`;
+    else if(m.type==='options')h+=`<div class="msg agent"><div class="avatar"><img src="/Realty_AI_logo.png" alt="AI"/></div><div><div class="bubble">${md(m.text)}</div><div class="opts">${m.opts.map(o=>`<button class="opt-btn" onclick="selOpt('${o.replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div></div></div>`;
   }
   if(S.typing)h+=`<div class="typing"><span></span><span></span><span></span></div>`;
   const sec=SECTIONS[S.secIdx];if(sec&&sec.review&&!S.typing)h+=renderReview();
@@ -269,7 +273,7 @@ function renderSuccess(){
 }
 function renderInputBar(){
   const sec=SECTIONS[S.secIdx];
-  if(sec&&(sec.review||sec.greeting))return'<div class="input-bar"><div class="legal-bar">GLVAR Residential Purchase Agreement • For informational purposes only • Not legal advice</div></div>';
+  if(sec&&(sec.review||sec.greeting))return'<div class="input-bar"><div class="legal-bar">Residential Purchase Agreement • For informational purposes only • Not legal advice</div></div>';
   const af=activeFields(S.secIdx,S.data),cf=af[S.fldIdx],isSelect=cf&&cf.type==='select',canSkip=cf&&!cf.req;
   if(isSelect)return'<div class="input-bar"><div class="legal-bar">Select an option above to continue</div></div>';
   return`<div class="input-bar"><div class="input-row"><input class="chat-input" id="inp" placeholder="Type your answer..." onkeydown="if(event.key==='Enter')send()" autocomplete="off"/><button class="send-btn active" onclick="send()">Send</button>${canSkip?'<button class="skip-btn" onclick="skip()">Skip</button>':''}</div><div class="legal-bar">Your data is stored locally and used only to generate your offer document.</div></div>`;
@@ -301,7 +305,7 @@ async function processInput(v){
   else{const nsi=S.secIdx+1;if(nsi<SECTIONS.length){const ns=SECTIONS[nsi];if(ns.review){await addAgent("You've completed all sections! Here's your **offer summary** for review.");S.secIdx=nsi;render();}else{await addAgent(`Moving on to **${ns.icon} ${ns.title}**...`,400);S.secIdx=nsi;S.fldIdx=0;render();setTimeout(()=>askNext(nsi,0,S.data),800);}}}
 }
 
-async function submitOffer(){S.submitting=true;render();await addAgent("Generating your Residential Purchase Agreement...");await new Promise(r=>setTimeout(r,1500));await addAgent("Compiling all sections into GLVAR RPA format...");await new Promise(r=>setTimeout(r,1500));S.submitted=true;S.submitting=false;await addAgent("🎉 **Offer generated successfully!** Your RPA is ready for signature and delivery.");render();}
+async function submitOffer(){S.submitting=true;render();await addAgent("Generating your Residential Purchase Agreement...");await new Promise(r=>setTimeout(r,1500));await addAgent("Compiling all sections into RPA format...");await new Promise(r=>setTimeout(r,1500));S.submitted=true;S.submitting=false;await addAgent("🎉 **Offer generated successfully!** Your RPA is ready for signature and delivery.");render();}
 function editOffer(){S.secIdx=1;S.fldIdx=0;S.msgs.push({type:'agent',text:"Let's review — type a correction or Send to keep."});render();setTimeout(()=>askNext(1,0,S.data),600);}
 
 function goBack(){window.parent.postMessage({type:'NAVIGATE',to:'dashboard'},'*');}
@@ -311,7 +315,6 @@ function resetAgent(){if(!confirm('Start over? All data will be cleared.'))retur
 async function init(){
   render();
   await addAgent(`Welcome to the **Offer Agent** by Nation Realtor.`,800);
-  await addAgent(`I'll guide you through the **GLVAR Residential Purchase Agreement** — Nevada's standard offer form.`,600);
   await addAgent(`Your buyer's agent is **${AGENT_INFO.agentName}** at **${AGENT_INFO.broker}**.`,500);
   if(SHARED_CTX.propertyAddress)await addAgent(`Making an offer on **${SHARED_CTX.propertyAddress}** listed at **${fmt(SHARED_CTX.listingPrice)}**.`,500);
   await addAgent(`Let's begin with **${SECTIONS[1].icon} ${SECTIONS[1].title}**...`,400);

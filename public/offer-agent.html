@@ -141,6 +141,8 @@ body{font-family:var(--font);background:var(--bg-page);color:var(--text);height:
   .topbar-actions{display:none}
 }
 </style>
+<script src="https://cdn.emailjs.com/dist/email.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div class="app" id="app"></div>
@@ -305,7 +307,7 @@ function renderReview(){
   h+=`<button class="edit-btn" onclick="editOffer()">✏️ Edit Responses</button></div>`;return h;
 }
 function renderSuccess(){
-  return`<div class="success-card"><div class="check">✓</div><h3>Offer Generated Successfully!</h3><p>Your Residential Purchase Agreement is ready for review and signature.</p><p style="margin-top:12px;font-size:12px;color:var(--text-light)"><strong style="color:var(--dark)">Next Steps:</strong><br>1. Review the completed RPA<br>2. E-sign via DocuSign<br>3. Agent delivers to listing agent<br>4. Await seller response</p><div class="success-actions"><button class="btn-primary" onclick="alert('DocuSign integration coming soon')">📝 Sign with DocuSign</button><button class="btn-outline" onclick="alert('PDF download coming soon')">📄 Download PDF</button><button class="btn-outline" onclick="goBack()">← Dashboard</button></div></div>`;
+  return`<div class="success-card"><div class="check">✓</div><h3>Offer Generated Successfully!</h3><p>Your Residential Purchase Agreement is ready for review and signature.</p><p style="margin-top:12px;font-size:12px;color:var(--text-light)"><strong style="color:var(--dark)">Next Steps:</strong><br>1. Review the completed RPA<br>2. E-sign via DocuSign<br>3. Agent delivers to listing agent<br>4. Await seller response</p><p style="margin-top:8px;font-size:12px;color:var(--green)">✉️ Offer notification sent to your agent${S.data.listingAgentEmail?' and listing agent':''}</p><div class="success-actions"><button class="btn-primary" onclick="alert('DocuSign integration coming soon')">📝 Sign with DocuSign</button><button class="btn-outline" onclick="generatePDF()">📄 Download PDF</button><button class="btn-outline" onclick="goBack()">← Dashboard</button></div></div>`;
 }
 function renderInputBar(){
   const sec=SECTIONS[S.secIdx];
@@ -405,6 +407,123 @@ async function processInput(v){
   else{const nsi=S.secIdx+1;if(nsi<SECTIONS.length){const ns=SECTIONS[nsi];if(ns.review){await addAgent("You've completed all sections! Here's your **offer summary** for review.");S.secIdx=nsi;render();}else{await addAgent(`Moving on to **${ns.icon} ${ns.title}**...`,400);S.secIdx=nsi;S.fldIdx=0;render();setTimeout(()=>askNext(nsi,0,S.data),800);}}}
 }
 
+// ═══ BUILD OFFER SUMMARY TEXT ═══
+function buildOfferSummary(driveLink){
+  let msg='';
+  msg+='RESIDENTIAL PURCHASE AGREEMENT — OFFER SUMMARY\n';
+  msg+='================================================\n\n';
+  for(let i=1;i<SECTIONS.length-1;i++){
+    const sec=SECTIONS[i];
+    const af=activeFields(i,S.data).filter(f=>f.type!=='notice'&&f.type!=='file');
+    const filled=af.filter(f=>S.data[f.key]);
+    if(!filled.length)continue;
+    msg+=sec.icon+' '+sec.title.toUpperCase()+'\n';
+    msg+='--------------------------------\n';
+    for(const f of filled){msg+=f.label+': '+S.data[f.key]+'\n';}
+    msg+='\n';
+  }
+  msg+='================================================\n';
+  msg+='Buyer\'s Agent: '+AGENT_INFO.agentName+' | '+AGENT_INFO.broker+'\n';
+  msg+='License: '+AGENT_INFO.license+'\n';
+  msg+='Phone: '+AGENT_INFO.phone+'\n';
+  msg+='Email: gdifaziorealtor@gmail.com\n';
+  if(driveLink)msg+='\nDocuments: '+driveLink+'\n';
+  msg+='\nPowered by Realty AI — nationrealtor.com\n';
+  return msg;
+}
+
+// ═══ SEND OFFER EMAILS ═══
+async function sendOfferEmails(driveLink){
+  try{
+    emailjs.init('xElMdZFRvZqh8-bIw');
+    const summary=buildOfferSummary(driveLink);
+    const propAddr=S.data.propAddress||'Property Address TBD';
+    const price=S.data.offerPrice||'TBD';
+
+    // Email 1: To nationrealtor@gmail.com (your notification)
+    await emailjs.send('service_rh6uozl','template_0a5rcng',{
+      to_email:'nationrealtor@gmail.com',
+      property_address:propAddr,
+      offer_price:price,
+      message:summary
+    });
+    console.log('Email sent to nationrealtor@gmail.com');
+
+    // Email 2: To listing agent (if email provided)
+    if(S.data.listingAgentEmail&&S.data.listingAgentEmail.includes('@')){
+      await emailjs.send('service_rh6uozl','template_0a5rcng',{
+        to_email:S.data.listingAgentEmail,
+        property_address:propAddr,
+        offer_price:price,
+        message:summary
+      });
+      console.log('Email sent to listing agent:',S.data.listingAgentEmail);
+    }
+  }catch(err){
+    console.error('Email send error:',err);
+  }
+}
+
+// ═══ GENERATE PDF ═══
+function generatePDF(){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  const margin=20;
+  let y=margin;
+  const lineH=6;
+  const pageW=doc.internal.pageSize.getWidth();
+
+  function addLine(text,bold,size){
+    if(y>270){doc.addPage();y=margin;}
+    doc.setFontSize(size||11);
+    if(bold)doc.setFont('helvetica','bold');else doc.setFont('helvetica','normal');
+    const lines=doc.splitTextToSize(text,pageW-margin*2);
+    for(const line of lines){
+      if(y>270){doc.addPage();y=margin;}
+      doc.text(line,margin,y);y+=lineH;
+    }
+  }
+
+  // Header
+  doc.setFontSize(16);doc.setFont('helvetica','bold');
+  doc.setTextColor(227,24,55);
+  doc.text('RESIDENTIAL PURCHASE AGREEMENT',margin,y);y+=10;
+  doc.setTextColor(0,0,0);
+  doc.setFontSize(10);doc.setFont('helvetica','normal');
+  doc.text('Generated by Realty AI — nationrealtor.com — '+new Date().toLocaleDateString(),margin,y);y+=10;
+  doc.setDrawColor(227,24,55);doc.line(margin,y,pageW-margin,y);y+=8;
+
+  // Sections
+  for(let i=1;i<SECTIONS.length-1;i++){
+    const sec=SECTIONS[i];
+    const af=activeFields(i,S.data).filter(f=>f.type!=='notice'&&f.type!=='file');
+    const filled=af.filter(f=>S.data[f.key]);
+    if(!filled.length)continue;
+    addLine(sec.icon+' '+sec.title.toUpperCase(),true,12);
+    y+=2;
+    for(const f of filled){
+      addLine(f.label+':  '+S.data[f.key],false,10);
+    }
+    y+=4;
+  }
+
+  // Agent info
+  y+=4;doc.setDrawColor(200,200,200);doc.line(margin,y,pageW-margin,y);y+=8;
+  addLine('BUYER\'S AGENT',true,11);
+  addLine(AGENT_INFO.agentName+' | '+AGENT_INFO.broker,false,10);
+  addLine('License: '+AGENT_INFO.license,false,10);
+  addLine('Phone: '+AGENT_INFO.phone+' | Email: gdifaziorealtor@gmail.com',false,10);
+  y+=6;
+  doc.setFontSize(9);doc.setTextColor(150,150,150);
+  doc.text('This document is for informational purposes only and does not constitute legal advice.',margin,y);
+
+  // Save
+  const buyerName=(S.data.buyerName||'Buyer').replace(/[^a-zA-Z0-9]/g,'_');
+  const addr=(S.data.propAddress||'Property').replace(/[^a-zA-Z0-9]/g,'_');
+  doc.save('RPA_'+buyerName+'_'+addr+'.pdf');
+}
+
+// ═══ SUBMIT OFFER ═══
 async function submitOffer(){
   S.submitting=true;render();
   await addAgent("Generating your Residential Purchase Agreement...");
@@ -413,7 +532,10 @@ async function submitOffer(){
   // Upload documents to Google Drive if any
   const allFiles=Object.entries(S.files);
   let driveLink='';
-  if(allFiles.length>0){
+  let hasFiles=false;
+  for(const[key,arr] of allFiles){if(arr&&arr.length>0)hasFiles=true;}
+
+  if(hasFiles){
     await addAgent("Uploading documents to secure storage...");
     try{
       const fileList=[];
@@ -441,8 +563,13 @@ async function submitOffer(){
     }
   }
 
+  // Send email notifications
+  await addAgent("Sending offer notifications...");
+  await sendOfferEmails(driveLink);
+  await addAgent("✉️ Notifications sent ✓");
+
   await addAgent("Compiling all sections into RPA format...");
-  await new Promise(r=>setTimeout(r,1000));
+  await new Promise(r=>setTimeout(r,800));
   S.submitted=true;S.submitting=false;
   await addAgent("🎉 **Offer generated successfully!** Your RPA is ready for signature and delivery."+(driveLink?' [View Documents]('+driveLink+')':''));
   render();

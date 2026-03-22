@@ -441,26 +441,32 @@ async function sendOfferEmails(driveLink){
     const price=S.data.offerPrice||'TBD';
 
     // Email 1: To nationrealtor@gmail.com (your notification)
-    await emailjs.send('service_rh6uozl','template_0a5rcng',{
-      to_email:'nationrealtor@gmail.com',
-      property_address:propAddr,
-      offer_price:price,
-      message:summary
-    });
-    console.log('Email sent to nationrealtor@gmail.com');
-
-    // Email 2: To listing agent (if email provided)
-    if(S.data.listingAgentEmail&&S.data.listingAgentEmail.includes('@')){
+    try{
       await emailjs.send('service_rh6uozl','template_0a5rcng',{
-        to_email:S.data.listingAgentEmail,
+        to_email:'nationrealtor@gmail.com',
+        to_name:'Giancarlo DiFazio',
         property_address:propAddr,
         offer_price:price,
         message:summary
       });
-      console.log('Email sent to listing agent:',S.data.listingAgentEmail);
+      console.log('Email 1 sent to nationrealtor@gmail.com');
+    }catch(e1){console.error('Email 1 failed:',JSON.stringify(e1));}
+
+    // Email 2: To listing agent (if email provided)
+    if(S.data.listingAgentEmail&&S.data.listingAgentEmail.includes('@')){
+      try{
+        await emailjs.send('service_rh6uozl','template_0a5rcng',{
+          to_email:S.data.listingAgentEmail,
+          to_name:S.data.listingAgentName||'Listing Agent',
+          property_address:propAddr,
+          offer_price:price,
+          message:summary
+        });
+        console.log('Email 2 sent to:',S.data.listingAgentEmail);
+      }catch(e2){console.error('Email 2 failed:',JSON.stringify(e2));}
     }
   }catch(err){
-    console.error('Email send error:',err);
+    console.error('EmailJS init error:',err);
   }
 }
 
@@ -544,12 +550,12 @@ async function submitOffer(){
           fileList.push({name:file.name,data:file.data.split(',').pop(),mimeType:file.type||'application/octet-stream'});
         }
       }
-      const res=await fetch('/.netlify/functions/upload-offer-docs',{
+      const res=await fetch('/.netlify/functions/upload-docs',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
-          buyerName:S.data.buyerName||'Unknown Buyer',
-          offerId:'OFFER-'+Date.now(),
+          borrowerName:S.data.buyerName||'Unknown Buyer',
+          loanId:'OFFER-'+Date.now(),
           files:fileList
         })
       });

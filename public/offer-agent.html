@@ -609,7 +609,8 @@ async function submitOffer(){
         body:JSON.stringify({
           borrowerName:S.data.buyerName||'Unknown Buyer',
           loanId:'OFFER-'+Date.now(),
-          files:fileList
+          files:fileList,
+          folderId:'1dP9SnHq5S8UUz7rgk6l75wLaTv9ERM0T'
         })
       });
       if(!res.ok){var errText=await res.text();console.error('Upload:',res.status,errText);throw new Error('Upload failed');}

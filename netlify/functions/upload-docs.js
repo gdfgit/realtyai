@@ -1,8 +1,8 @@
 // netlify/functions/upload-docs.js
 // Uploads documents to Google Drive using OAuth2 (as nationrealtor@gmail.com)
-// Supports both Mortgage Agent and Offer Agent by accepting optional folderId in request
-// - If folderId is passed in request body, uses that folder
-// - Otherwise falls back to GDRIVE_FOLDER_ID env variable (Mortgage Applications folder)
+// Supports both Mortgage Agent and Offer Agent
+// - Mortgage Agent: no folderId sent, uses GDRIVE_FOLDER_ID env (Mortgage Applications)
+// - Offer Agent: sends folderId in body, uses that (Offer Documents)
 
 const { google } = require('googleapis');
 const { Readable } = require('stream');
@@ -72,9 +72,8 @@ exports.handler = async (event) => {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'No files provided' }) };
     }
 
-    // Use folderId from request if provided, otherwise fall back to env variable
-    // This allows Offer Agent to target "Offer Documents" folder
-    // while Mortgage Agent uses the default "Mortgage Applications" folder
+    // If folderId is sent (Offer Agent), use it
+    // Otherwise fall back to GDRIVE_FOLDER_ID env (Mortgage Agent)
     const targetFolderId = folderId || PARENT_FOLDER_ID;
 
     // Authenticate with Google Drive using OAuth2

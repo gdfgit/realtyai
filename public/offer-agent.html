@@ -141,7 +141,6 @@ body{font-family:var(--font);background:var(--bg-page);color:var(--text);height:
   .topbar-actions{display:none}
 }
 </style>
-<script src="https://cdn.emailjs.com/dist/email.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
@@ -491,24 +490,19 @@ async function sendOfferEmails(driveLink){
     var summary=buildOfferSummary(driveLink);
     var propAddr=S.data.propAddress||'Property Address TBD';
     var price=S.data.offerPrice||'TBD';
-
-    // Email 1: To gdifaziorealtor@gmail.com (via Netlify function)
-    try{
-      var res1=await fetch('/.netlify/functions/send-offer-email',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          to_email:S.data.listingAgentEmail||'',
-          to_name:S.data.listingAgentName||'Listing Agent',
-          property_address:propAddr,
-          offer_price:price,
-          message:summary
-        })
-      });
-      if(res1.ok)console.log('Email sent via server');
-      else console.error('Email server error:',await res1.text());
-    }catch(e1){console.error('Email 1 failed:',e1);}
-
+    var res=await fetch('/.netlify/functions/send-offer-email',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        property_address:propAddr,
+        offer_price:price,
+        message:summary,
+        listing_agent_email:S.data.listingAgentEmail||'',
+        listing_agent_name:S.data.listingAgentName||''
+      })
+    });
+    if(res.ok){var r=await res.json();console.log('Email sent:',r);}
+    else{var e=await res.text();console.error('Email failed:',e);}
   }catch(err){
     console.error('Email error:',err);
   }

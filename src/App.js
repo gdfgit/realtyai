@@ -735,7 +735,7 @@ function buildAreaLinks(address, encodedAddr) {
 function buildCallToAction() {
   let o = `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   o += `🎯 **Take Action**\n\n`;
-  o += `[📅 Schedule a Tour](https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ0A8_eNZZH1LljBWEEU0DIIQ7JwWNzlnFrWvGD7UB-aye3aZJRcLk9tRsMeiV1UesGVsGHQeZW6)\n`;
+  o += `[📅 Schedule a Tour](#schedule-tour)\n`;
   o += `[📝 Submit an Offer](#offer-agent)\n`;
   o += `[✅ Get Approved in 15 Minutes!](#mortgage-agent)\n`;
   o += `[🎥 Live Stream](https://studio.restream.io/euf-vqup-uwl)\n`;
@@ -774,11 +774,13 @@ export default function RealtyAI() {
   const [showMortgageAgent, setShowMortgageAgent] = useState(false);
   // *** OFFER AGENT: Added offer agent panel state ***
   const [showOfferAgent, setShowOfferAgent] = useState(false);
+  const [showTourAgent, setShowTourAgent] = useState(false);
   const chatRef = useRef(null);
   const fileRef = useRef(null);
   const recognitionRef = useRef(null);
   // *** OFFER AGENT: Ref for the offer agent iframe ***
   const offerIframeRef = useRef(null);
+  const tourIframeRef = useRef(null);
 
   useEffect(() => {
     if (chatRef.current) {
@@ -810,6 +812,10 @@ export default function RealtyAI() {
         e.preventDefault();
         setShowOfferAgent(true);
       }
+      if (link && link.getAttribute('href') === '#schedule-tour') {
+        e.preventDefault();
+        setShowTourAgent(true);
+      }
     };
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
@@ -822,8 +828,9 @@ export default function RealtyAI() {
         setShowMortgageAgent(false);
       }
       // *** OFFER AGENT: Listen for close message from Offer Agent iframe ***
-      if (e.data?.type === 'NAVIGATE' && e.data.to === 'dashboard') {
+       if (e.data?.type === 'NAVIGATE' && e.data.to === 'dashboard') {
         setShowOfferAgent(false);
+        setShowTourAgent(false);
       }
     };
     window.addEventListener('message', handleMessage);

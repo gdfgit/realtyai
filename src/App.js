@@ -1234,6 +1234,64 @@ export default function RealtyAI() {
           </div>
         </div>
       )}
+        {/* TOUR AGENT OVERLAY */}
+      {showTourAgent && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 9999, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowTourAgent(false); }}
+        >
+          <div style={{
+            width: window.innerWidth <= 768 ? '100%' : '95%',
+            maxWidth: window.innerWidth <= 768 ? '100%' : 1200,
+            height: window.innerWidth <= 768 ? '100%' : '92vh',
+            background: '#fff',
+            borderRadius: window.innerWidth <= 768 ? 0 : '16px 16px 0 0',
+            boxShadow: '0 -4px 40px rgba(0,0,0,0.25)',
+            position: 'relative', overflow: 'hidden',
+            animation: 'slideUp 0.3s ease-out',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 16px',
+              background: '#fff',
+              borderBottom: '1px solid #E5E7EB',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  width: 28, height: 28, background: '#E31837', borderRadius: 6,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontWeight: 800, fontSize: 12,
+                }}>R</div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A' }}>
+                  Schedule a Tour
+                </span>
+              </div>
+              <button
+                onClick={() => setShowTourAgent(false)}
+                style={{
+                  background: 'none', border: '1px solid #E5E7EB',
+                  borderRadius: 8, padding: '6px 14px', fontSize: 13,
+                  fontWeight: 600, cursor: 'pointer', color: '#555', minHeight: 36,
+                }}
+              >
+                ✕ Close
+              </button>
+            </div>
+            <iframe
+              ref={tourIframeRef}
+              src="/schedule-tour.html"
+              style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }}
+              title="Schedule a Tour"
+            />
+          </div>
+        </div>
+      )}
+    </>
+  
     </>
   );
 }

@@ -1291,7 +1291,6 @@ export default function RealtyAI() {
         </div>
       )}
     </>
-  
-    </>
+  </>
   );
 }

@@ -736,6 +736,7 @@ function buildCallToAction() {
   let o = `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   o += `🎯 **Take Action**\n\n`;
   o += `[📅 Schedule a Tour](#schedule-tour)\n`;
+  o += `[🏡 Sell Your Property](#listing-agent)\n`;
   o += `[📝 Submit an Offer](#offer-agent)\n`;
   o += `[✅ Get Approved in 15 Minutes!](#mortgage-agent)\n`;
   o += `[🎥 Live Stream](https://studio.restream.io/euf-vqup-uwl)\n`;
@@ -774,12 +775,14 @@ export default function RealtyAI() {
   const [showMortgageAgent, setShowMortgageAgent] = useState(false);
   // *** OFFER AGENT: Added offer agent panel state ***
   const [showOfferAgent, setShowOfferAgent] = useState(false);
+  const [showListingAgent, setShowListingAgent] = useState(false);
   const [showTourAgent, setShowTourAgent] = useState(false);
   const chatRef = useRef(null);
   const fileRef = useRef(null);
   const recognitionRef = useRef(null);
   // *** OFFER AGENT: Ref for the offer agent iframe ***
   const offerIframeRef = useRef(null);
+  const listingIframeRef = useRef(null);
   const tourIframeRef = useRef(null);
 
   useEffect(() => {
@@ -812,6 +815,11 @@ export default function RealtyAI() {
         e.preventDefault();
         setShowOfferAgent(true);
       }
+      // *** LISTING AGENT: Intercept #listing-agent clicks ***
+      if (link && link.getAttribute('href') === '#listing-agent') {
+        e.preventDefault();
+        setShowListingAgent(true);
+      }
       if (link && link.getAttribute('href') === '#schedule-tour') {
         e.preventDefault();
         setShowTourAgent(true);
@@ -830,6 +838,7 @@ export default function RealtyAI() {
       // *** OFFER AGENT: Listen for close message from Offer Agent iframe ***
        if (e.data?.type === 'NAVIGATE' && e.data.to === 'dashboard') {
         setShowOfferAgent(false);
+        setShowListingAgent(false);
         setShowTourAgent(false);
       }
     };
@@ -1230,6 +1239,66 @@ export default function RealtyAI() {
               src="/offer-agent.html"
               style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }}
               title="Submit an Offer"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* *** LISTING AGENT: Overlay Panel — Same pattern as Offer Agent *** */}
+      {showListingAgent && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 9999, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowListingAgent(false); }}
+        >
+          <div style={{
+            width: window.innerWidth <= 768 ? '100%' : '95%',
+            maxWidth: window.innerWidth <= 768 ? '100%' : 1200,
+            height: window.innerWidth <= 768 ? '100%' : '92vh',
+            background: '#fff',
+            borderRadius: window.innerWidth <= 768 ? 0 : '16px 16px 0 0',
+            boxShadow: '0 -4px 40px rgba(0,0,0,0.25)',
+            position: 'relative', overflow: 'hidden',
+            animation: 'slideUp 0.3s ease-out',
+          }}>
+            {/* Header bar with close button */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 16px',
+              background: '#fff',
+              borderBottom: '1px solid #E5E7EB',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  width: 28, height: 28, background: '#E31837', borderRadius: 6,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontWeight: 800, fontSize: 12,
+                }}>R</div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>
+                  Sell Your Property
+                </span>
+              </div>
+              <button
+                onClick={() => setShowListingAgent(false)}
+                style={{
+                  background: 'none', border: '1px solid #E5E7EB',
+                  borderRadius: 8, padding: '6px 14px', fontSize: 13,
+                  fontWeight: 600, cursor: 'pointer', fontFamily: theme.font,
+                  color: '#555', minHeight: 36,
+                }}
+              >
+                ✕ Close
+              </button>
+            </div>
+            {/* Listing Agent iframe */}
+            <iframe
+              ref={listingIframeRef}
+              src="/listing-agent.html"
+              style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }}
+              title="Sell Your Property"
             />
           </div>
         </div>

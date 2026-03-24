@@ -996,7 +996,10 @@ function render() {
   const sec = SECTIONS[S.secIdx];
   const p = getPercent();
   const fields = activeF(S.secIdx, S.data);
-  const cf = fields[S.fldIdx];
+  // Skip past notice fields to find the actual current interactive field
+  let cfIdx = S.fldIdx;
+  while (cfIdx < fields.length && fields[cfIdx].type === 'notice') cfIdx++;
+  const cf = cfIdx < fields.length ? fields[cfIdx] : null;
   const isSelect = cf && cf.type === 'select';
   const isFile = cf && cf.type === 'file';
   const isReview = sec && sec.review;

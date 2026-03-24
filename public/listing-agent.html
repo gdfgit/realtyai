@@ -786,6 +786,15 @@ async function submitListing() {
         listing_price: fmt(S.data.listPrice) || 'N/A',
         message: summary,
       });
+      // Send confirmation to seller if email provided
+      if (S.data.sellerEmail) {
+        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+          to_email: S.data.sellerEmail,
+          property_address: S.data.propAddress || 'N/A',
+          listing_price: fmt(S.data.listPrice) || 'N/A',
+          message: summary,
+        });
+      }
     } catch (err) {
       console.error('EmailJS error:', err);
     }

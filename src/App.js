@@ -777,6 +777,11 @@ export default function RealtyAI() {
   const [showOfferAgent, setShowOfferAgent] = useState(false);
   const [showListingAgent, setShowListingAgent] = useState(false);
   const [showTourAgent, setShowTourAgent] = useState(false);
+  // *** STRIPE: Plan gating state ***
+  const [userPlan, setUserPlan] = useState("free");
+  const [searchCount, setSearchCount] = useState(0);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeBillingCycle, setUpgradeBillingCycle] = useState("monthly");
   const chatRef = useRef(null);
   const fileRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -808,16 +813,19 @@ export default function RealtyAI() {
       const link = e.target.closest('a');
       if (link && link.getAttribute('href') === '#mortgage-agent') {
         e.preventDefault();
+        if (userPlan === 'free') { setShowUpgradeModal(true); return; }
         setShowMortgageAgent(true);
       }
       // *** OFFER AGENT: Intercept #offer-agent clicks ***
       if (link && link.getAttribute('href') === '#offer-agent') {
         e.preventDefault();
+        if (userPlan === 'free') { setShowUpgradeModal(true); return; }
         setShowOfferAgent(true);
       }
       // *** LISTING AGENT: Intercept #listing-agent clicks ***
       if (link && link.getAttribute('href') === '#listing-agent') {
         e.preventDefault();
+        if (userPlan === 'free') { setShowUpgradeModal(true); return; }
         setShowListingAgent(true);
       }
       if (link && link.getAttribute('href') === '#schedule-tour') {
@@ -850,9 +858,20 @@ export default function RealtyAI() {
     const text = input.trim();
     if (!text && attachments.length === 0) return;
 
+    // *** STRIPE: Search limit check for free users ***
     const lowerText = text.toLowerCase();
     const isNonRealEstate = lowerText.match(/^(write me a poem|tell me a joke|what is the meaning of life|who is the president|write code|help me with math|translate|recipe|cook|weather forecast|stock market|crypto|bitcoin|sports score|movie review|book summary|play a game)/);
     const isGreeting = lowerText.match(/^(hi|hello|hey|good morning|good afternoon|good evening|what can you do|help|how are you)/);
+
+    if (userPlan === "free" && !isGreeting && !isNonRealEstate && searchCount >= 50) {
+      setMessages((prev) => [...prev,
+        { role: "user", content: text },
+        { role: "assistant", type: "rich", content: "🔒 **You've reached your 50 free searches this month.**\n\nUpgrade to **Realty AI Plus** for unlimited searches plus full access to the Mortgage Agent, Offer Agent, and Listing Agent.\n\n💰 Starting at just **$25/month** (billed annually)." }
+      ]);
+      setInput("");
+      setShowUpgradeModal(true);
+      return;
+    }
     const hasAddress = lowerText.match(/\d+\s+\w+\s+(st|street|ave|avenue|blvd|boulevard|dr|drive|ln|lane|rd|road|ct|court|way|pl|place|cir|circle|pkwy|parkway)|(\d{5})|([a-z]+,?\s*(ca|ny|tx|fl|az|nv|wa|or|co|il|ga|nc|sc|va|md|pa|nj|oh|mi|ma|ct|mn|wi|mo|tn|in|al|la|ky|ok|ut|ia|ar|ms|ks|ne|nm|id|hi|me|nh|ri|mt|de|sd|nd|ak|vt|wy|wv|dc))\b/i);
 
     const userMsg = {
@@ -929,6 +948,16 @@ export default function RealtyAI() {
         content: "I encountered an issue searching for properties. Please try again with more specific criteria like location, price range, or property type.",
       }]);
     }
+    // *** STRIPE: Increment search count for free users ***
+    if (userPlan === "free") {
+      const newCount = searchCount + 1;
+      setSearchCount(newCount);
+      try {
+        await supabaseRequest(`/users?email=eq.${encodeURIComponent(user.email)}`, {
+          method: "PATCH", body: JSON.stringify({ search_count: newCount }),
+        });
+      } catch (e) { console.error("Search count update error:", e); }
+    }
     setLoading(false);
   };
 
@@ -967,7 +996,33 @@ export default function RealtyAI() {
   if (!user) return (
     <>
       <style>{globalCSS}</style>
-      <RegistrationScreen onLogin={setUser} />
+      <RegistrationScreen onLogin={async (userData) => {
+        setUser(userData);
+        // Fetch user plan from Supabase
+        try {
+          const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(userData.email)}&select=plan,search_count,search_reset_date`, { method: "GET" });
+          if (data && data.length > 0) {
+            setUserPlan(data[0].plan || "free");
+            // Reset search count monthly
+            const resetDate = new Date(data[0].search_reset_date || Date.now());
+            const now = new Date();
+            if (now.getMonth() !== resetDate.getMonth() || now.getFullYear() !== resetDate.getFullYear()) {
+              setSearchCount(0);
+              await supabaseRequest(`/users?email=eq.${encodeURIComponent(userData.email)}`, {
+                method: "PATCH", body: JSON.stringify({ search_count: 0, search_reset_date: now.toISOString() }),
+              });
+            } else {
+              setSearchCount(data[0].search_count || 0);
+            }
+          }
+        } catch (e) { console.error("Plan fetch error:", e); }
+        // Check if returning from Stripe checkout
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("upgraded") === "true") {
+          setUserPlan("plus");
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      }} />
     </>
   );
 
@@ -1121,6 +1176,16 @@ export default function RealtyAI() {
           </div>
           <p style={{ textAlign: "center", fontSize: 11, color: "#999", marginTop: 8 }}>
             Realty AI searches Zillow, Realtor.com, Redfin, Homes.com, LoopNet, Crexi & BizBuySell
+            {userPlan === "free" && (
+              <span style={{ display: "block", marginTop: 2, color: searchCount >= 40 ? theme.red : "#999" }}>
+                {50 - searchCount} searches remaining this month · <button onClick={() => setShowUpgradeModal(true)} style={{ background: "none", border: "none", color: theme.red, cursor: "pointer", fontFamily: theme.font, fontSize: 11, fontWeight: 600, textDecoration: "underline" }}>Upgrade to Plus</button>
+              </span>
+            )}
+            {userPlan === "plus" && (
+              <span style={{ display: "block", marginTop: 2, color: "#27ae60" }}>
+                ✓ Realty AI Plus — Unlimited searches
+              </span>
+            )}
           </p>
         </div>
       </div>
@@ -1356,6 +1421,145 @@ export default function RealtyAI() {
               style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }}
               title="Schedule a Tour"
             />
+          </div>
+        </div>
+      )}
+
+      {/* *** STRIPE: Upgrade Modal *** */}
+      {showUpgradeModal && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 99999, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20,
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowUpgradeModal(false); }}
+        >
+          <div style={{
+            background: '#fff', borderRadius: 20, maxWidth: 520, width: '100%',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.2)', animation: 'fadeUp 0.3s ease-out',
+            overflow: 'hidden',
+          }}>
+            {/* Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #E31837, #B71230)',
+              padding: '28px 32px', color: '#fff', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>🚀</div>
+              <h2 style={{ fontSize: 22, fontWeight: 700, fontFamily: theme.fontDisplay, margin: 0 }}>
+                Upgrade to Realty AI Plus
+              </h2>
+              <p style={{ fontSize: 13, opacity: 0.9, marginTop: 6 }}>
+                Unlock the full power of AI-driven real estate
+              </p>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: '24px 32px' }}>
+              {/* Billing toggle */}
+              <div style={{
+                display: 'flex', justifyContent: 'center', gap: 0,
+                background: '#F3F4F6', borderRadius: 10, padding: 4, marginBottom: 24,
+              }}>
+                <button onClick={() => setUpgradeBillingCycle('monthly')} style={{
+                  flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none',
+                  background: upgradeBillingCycle === 'monthly' ? '#fff' : 'transparent',
+                  boxShadow: upgradeBillingCycle === 'monthly' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                  fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: theme.font,
+                  color: upgradeBillingCycle === 'monthly' ? theme.dark : '#888',
+                }}>Monthly — $29.95/mo</button>
+                <button onClick={() => setUpgradeBillingCycle('yearly')} style={{
+                  flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none',
+                  background: upgradeBillingCycle === 'yearly' ? '#fff' : 'transparent',
+                  boxShadow: upgradeBillingCycle === 'yearly' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                  fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: theme.font,
+                  color: upgradeBillingCycle === 'yearly' ? theme.dark : '#888',
+                }}>Annual — $25/mo</button>
+              </div>
+
+              {upgradeBillingCycle === 'yearly' && (
+                <div style={{
+                  textAlign: 'center', fontSize: 12, color: '#27ae60', fontWeight: 600,
+                  marginTop: -16, marginBottom: 16,
+                }}>
+                  Save $59.40/year with annual billing
+                </div>
+              )}
+
+              {/* Features comparison */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+                {[
+                  { feature: 'Property searches', free: '50/month', plus: 'Unlimited' },
+                  { feature: 'Mortgage Agent', free: '🔒', plus: '✅' },
+                  { feature: 'Offer Agent (RPA)', free: '🔒', plus: '✅' },
+                  { feature: 'Listing Agent', free: '🔒', plus: '✅' },
+                  { feature: 'Document upload to Drive', free: '🔒', plus: '✅' },
+                  { feature: 'PDF generation', free: '🔒', plus: '✅' },
+                  { feature: 'Email notifications', free: '🔒', plus: '✅' },
+                  { feature: 'Voice search', free: '✅', plus: '✅' },
+                  { feature: 'Schedule a Tour', free: '✅', plus: '✅' },
+                ].map((row, i) => (
+                  <div key={i} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '8px 0', borderBottom: '1px solid #F3F4F6', fontSize: 13,
+                  }}>
+                    <span style={{ color: theme.dark, fontWeight: 500 }}>{row.feature}</span>
+                    <div style={{ display: 'flex', gap: 24 }}>
+                      <span style={{ width: 70, textAlign: 'center', color: '#999' }}>{row.free}</span>
+                      <span style={{ width: 70, textAlign: 'center', color: '#27ae60', fontWeight: 600 }}>{row.plus}</span>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 24, fontSize: 10, color: '#999', marginTop: -4 }}>
+                  <span style={{ width: 70, textAlign: 'center' }}>FREE</span>
+                  <span style={{ width: 70, textAlign: 'center', color: theme.red, fontWeight: 700 }}>PLUS</span>
+                </div>
+              </div>
+
+              {/* CTA */}
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/.netlify/functions/create-checkout', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        email: user.email,
+                        name: user.name,
+                        plan: upgradeBillingCycle,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (data.url) window.location.href = data.url;
+                    else alert('Error creating checkout session. Please try again.');
+                  } catch (e) {
+                    console.error('Checkout error:', e);
+                    alert('Error connecting to payment system. Please try again.');
+                  }
+                }}
+                style={{
+                  width: '100%', padding: 16, background: theme.red, color: '#fff',
+                  border: 'none', borderRadius: 12, fontSize: 16, fontWeight: 700,
+                  fontFamily: theme.font, cursor: 'pointer',
+                  boxShadow: '0 4px 16px rgba(227,24,55,0.3)', transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#B71230'}
+                onMouseLeave={(e) => e.currentTarget.style.background = theme.red}
+              >
+                {upgradeBillingCycle === 'yearly' ? 'Upgrade — $300/year ($25/mo)' : 'Upgrade — $29.95/month'}
+              </button>
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                style={{
+                  width: '100%', padding: 12, background: 'transparent', color: '#999',
+                  border: 'none', fontSize: 13, cursor: 'pointer', fontFamily: theme.font,
+                  marginTop: 8,
+                }}
+              >
+                Maybe later
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -765,7 +765,12 @@ function extractAddress(title) {
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────
 export default function RealtyAI() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('realtyai_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -795,6 +800,35 @@ export default function RealtyAI() {
       chatRef.current.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
     }
   }, [messages, loading]);
+
+  // *** STRIPE: Fetch plan on load (for returning users / after Stripe redirect) ***
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(user.email)}&select=plan,search_count,search_reset_date`, { method: "GET" });
+        if (data && data.length > 0) {
+          setUserPlan(data[0].plan || "free");
+          const resetDate = new Date(data[0].search_reset_date || Date.now());
+          const now = new Date();
+          if (now.getMonth() !== resetDate.getMonth() || now.getFullYear() !== resetDate.getFullYear()) {
+            setSearchCount(0);
+            await supabaseRequest(`/users?email=eq.${encodeURIComponent(user.email)}`, {
+              method: "PATCH", body: JSON.stringify({ search_count: 0, search_reset_date: now.toISOString() }),
+            });
+          } else {
+            setSearchCount(data[0].search_count || 0);
+          }
+        }
+      } catch (e) { console.error("Plan fetch error:", e); }
+      // Check if returning from Stripe checkout
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("upgraded") === "true") {
+        setUserPlan("plus");
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    })();
+  }, [user]);
 
   // Welcome message
   useEffect(() => {
@@ -998,6 +1032,7 @@ export default function RealtyAI() {
       <style>{globalCSS}</style>
       <RegistrationScreen onLogin={async (userData) => {
         setUser(userData);
+        localStorage.setItem('realtyai_user', JSON.stringify(userData));
         // Fetch user plan from Supabase
         try {
           const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(userData.email)}&select=plan,search_count,search_reset_date`, { method: "GET" });
@@ -1054,7 +1089,7 @@ export default function RealtyAI() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: 13, color: theme.grey }}>{user.email}</span>
-            <button onClick={() => { setUser(null); setMessages([]); }} style={{
+            <button onClick={() => { localStorage.removeItem('realtyai_user'); setUser(null); setMessages([]); }} style={{
               display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
               background: "none", border: `1px solid ${theme.greyLight}`, borderRadius: 10,
               cursor: "pointer", color: theme.grey, fontSize: 13, fontFamily: theme.font,
@@ -1446,7 +1481,7 @@ export default function RealtyAI() {
               background: 'linear-gradient(135deg, #E31837, #B71230)',
               padding: '28px 32px', color: '#fff', textAlign: 'center',
             }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>🚀</div>
+              <img src="/logo.png" alt="Realty AI" style={{ width: 56, height: 56, borderRadius: 12, marginBottom: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }} />
               <h2 style={{ fontSize: 22, fontWeight: 700, fontFamily: theme.fontDisplay, margin: 0 }}>
                 Upgrade to Realty AI Plus
               </h2>

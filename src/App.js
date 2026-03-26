@@ -1566,7 +1566,7 @@ export default function RealtyAI() {
                       }),
                     });
                     const data = await res.json();
-                    if (data.url) window.location.href = data.url;
+                    if (data.url) window.open(data.url, '_blank');
                     else alert('Error creating checkout session. Please try again.');
                   } catch (e) {
                     console.error('Checkout error:', e);

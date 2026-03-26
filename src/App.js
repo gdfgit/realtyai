@@ -869,7 +869,7 @@ export default function RealtyAI() {
     };
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
-  }, []);
+  }, [userPlan]);
 
   // Listen for close messages from agent iframes
   useEffect(() => {

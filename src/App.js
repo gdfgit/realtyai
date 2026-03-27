@@ -1200,12 +1200,10 @@ export default function RealtyAI() {
             padding: "14px 16px", display: "flex", alignItems: "center", gap: 10,
             borderBottom: `1px solid ${theme.sidebarBorder}`,
           }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: 10, background: theme.red,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: "#fff", fontWeight: 800, fontSize: 13, flexShrink: 0,
-              letterSpacing: "-.5px",
-            }}>RA</div>
+            <img src="/logo.png" alt="Realty AI" style={{
+              width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+            }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: 15, color: "#fff", letterSpacing: ".2px" }}>Realty AI</div>
               <div style={{ fontSize: 10.5, color: theme.sidebarTextMuted }}>AI Real Estate Assistant</div>
@@ -1367,7 +1365,6 @@ export default function RealtyAI() {
                   {/* Menu items */}
                   <div style={{ padding: 4 }}>
                     {[
-                      { icon: Icons.editProfile, label: "Edit profile", action: () => { setEditName(user.name || ""); setShowAccountSettings(true); } },
                       { icon: Icons.subscription, label: "Manage subscription", action: () => setShowUpgradeModal(true) },
                       { icon: Icons.searchHistory, label: "Search history", action: () => setShowSearchHistory(true) },
                       { icon: Icons.settings, label: "Account settings", action: () => { setEditName(user.name || ""); setShowAccountSettings(true); } },

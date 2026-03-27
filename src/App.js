@@ -112,6 +112,16 @@ const Icons = {
   plusSmall: (
     <svg width="10" height="10" fill="none" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg>
   ),
+  // *** VOICE MODE: Icons ***
+  voiceOn: (
+    <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#E31837" stroke="#E31837" strokeWidth="1.5"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="#E31837" strokeWidth="2" strokeLinecap="round"/><path d="M12 19v4m-4 0h8" stroke="#E31837" strokeWidth="2" strokeLinecap="round"/><circle cx="19" cy="5" r="4" fill="#4CAF50"/><path d="M17.5 5l1 1 2-2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+  ),
+  voiceOff: (
+    <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" stroke="currentColor" strokeWidth="2"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M12 19v4m-4 0h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M1 1l22 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+  ),
+  stopSpeaking: (
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+  ),
 };
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────
@@ -836,6 +846,11 @@ export default function RealtyAI() {
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [attachments, setAttachments] = useState([]);
+  // *** VOICE MODE ***
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const speechSynthRef = useRef(window.speechSynthesis);
+  const voiceModeRef = useRef(false); // ref to avoid stale closure in callbacks
   const [showMortgageAgent, setShowMortgageAgent] = useState(false);
   const [showOfferAgent, setShowOfferAgent] = useState(false);
   const [showListingAgent, setShowListingAgent] = useState(false);
@@ -1005,22 +1020,26 @@ export default function RealtyAI() {
     setLoading(true);
 
     if (isNonRealEstate && !hasAddress) {
+      const rejectMsg = "I'm specialized in real estate searches only. Please ask me about residential homes, commercial properties, new constructions, or give me a property address and I'll look it up for you!";
       setTimeout(() => {
         setMessages((prev) => [...prev, {
           role: "assistant", type: "rich",
-          content: "I'm specialized in real estate searches only. Please ask me about residential homes, commercial properties, new constructions, or give me a property address and I'll look it up for you! 🏠",
+          content: rejectMsg + " 🏠",
         }]);
+        if (voiceModeRef.current) speakText(rejectMsg);
         setLoading(false);
       }, 600);
       return;
     }
 
     if (isGreeting && !hasAddress) {
+      const greetMsg = "Hello! I'm Realty AI, your real estate search assistant. I can search for residential, commercial, or new construction properties across major platforms. Just tell me what you're looking for, include details like location, price range, bedrooms, or property type!";
       setTimeout(() => {
         setMessages((prev) => [...prev, {
           role: "assistant", type: "rich",
           content: `Hello! 👋 I'm **Realty AI**, your real estate search assistant.\n\nI can search for **residential**, **commercial**, or **new construction** properties across major platforms. Just tell me what you're looking for — include details like location, price range, bedrooms, or property type!\n\n*Example: "Find me 3 bed homes in San Diego under $700K"*\n*Example: "123 Main St, Los Angeles, CA"*`,
         }]);
+        if (voiceModeRef.current) speakText(greetMsg);
         setLoading(false);
       }, 600);
       return;
@@ -1071,6 +1090,10 @@ export default function RealtyAI() {
           updated[updated.length - 1] = { role: "assistant", type: "rich", content: current, streaming: i + 4 < words.length };
           return updated;
         });
+      }
+      // *** VOICE MODE: Speak the response aloud ***
+      if (voiceModeRef.current) {
+        speakText(response);
       }
     } catch (e) {
       setMessages((prev) => [...prev, {
@@ -1155,6 +1178,145 @@ export default function RealtyAI() {
 
   // *** SIDEBAR: User initials helper ***
   const userInitials = user ? (user.name || user.email || "U").split(" ").map(w => w[0]).join("").toUpperCase().substring(0, 2) : "U";
+
+  // *** VOICE MODE: Core functions ***
+  const stripMarkdown = (text) => {
+    if (!text) return "";
+    let clean = text;
+    clean = clean.replace(/\{\{IMG:.*?\}\}/g, '');
+    clean = clean.replace(/━+/g, '');
+    clean = clean.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+    clean = clean.replace(/\*\*(.*?)\*\*/g, '$1');
+    clean = clean.replace(/\*(.*?)\*/g, '$1');
+    clean = clean.replace(/#{1,4}\s*/g, '');
+    clean = clean.replace(/\|[^|]+\|/g, '');
+    clean = clean.replace(/[-]{3,}/g, '');
+    clean = clean.replace(/[🏠🏢🏗️📸💰📊📈📍🍽️🏫🏥💪🌳🏛️🗺️📅🎯📝✅🎥👋🔒🔗✓●🟢🟡🟠🔴]/g, '');
+    clean = clean.replace(/\n{2,}/g, '. ');
+    clean = clean.replace(/\n/g, '. ');
+    clean = clean.replace(/\.\s*\.\s*/g, '. ');
+    clean = clean.replace(/\s{2,}/g, ' ');
+    return clean.trim();
+  };
+
+  const speakText = useCallback((text) => {
+    if (!text || !voiceModeRef.current) return;
+    const synth = speechSynthRef.current;
+    synth.cancel(); // stop any ongoing speech
+
+    const clean = stripMarkdown(text);
+    if (!clean || clean.length < 3) return;
+
+    // Split into chunks (speechSynthesis has a ~200 char limit on some browsers)
+    const sentences = clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean];
+    const chunks = [];
+    let current = "";
+    for (const s of sentences) {
+      if ((current + s).length > 180) {
+        if (current) chunks.push(current.trim());
+        current = s;
+      } else {
+        current += s;
+      }
+    }
+    if (current) chunks.push(current.trim());
+
+    setIsSpeaking(true);
+
+    // Pick a good voice
+    const voices = synth.getVoices();
+    const preferred = voices.find(v => v.name.includes("Google US English")) ||
+      voices.find(v => v.name.includes("Samantha")) ||
+      voices.find(v => v.lang.startsWith("en") && v.localService) ||
+      voices.find(v => v.lang.startsWith("en")) ||
+      voices[0];
+
+    chunks.forEach((chunk, i) => {
+      const utterance = new SpeechSynthesisUtterance(chunk);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      if (preferred) utterance.voice = preferred;
+
+      if (i === chunks.length - 1) {
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          // Auto-listen after AI finishes speaking (full duplex)
+          if (voiceModeRef.current) {
+            setTimeout(() => {
+              if (voiceModeRef.current && !loading) {
+                startVoiceListening();
+              }
+            }, 500);
+          }
+        };
+      }
+      utterance.onerror = () => setIsSpeaking(false);
+      synth.speak(utterance);
+    });
+  }, [loading]);
+
+  const stopSpeaking = () => {
+    speechSynthRef.current.cancel();
+    setIsSpeaking(false);
+  };
+
+  const toggleVoiceMode = () => {
+    const newMode = !voiceMode;
+    setVoiceMode(newMode);
+    voiceModeRef.current = newMode;
+    if (!newMode) {
+      // Turning off — stop everything
+      speechSynthRef.current.cancel();
+      setIsSpeaking(false);
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        setListening(false);
+      }
+    } else {
+      // Turning on — start listening immediately
+      startVoiceListening();
+    }
+  };
+
+  const startVoiceListening = () => {
+    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
+      alert("Voice search is not supported in this browser.");
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SR();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setInput(transcript);
+      setListening(false);
+      // Auto-send after voice input in voice mode
+      if (voiceModeRef.current) {
+        setTimeout(() => {
+          document.getElementById('realtyai-send-btn')?.click();
+        }, 300);
+      }
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+  };
+
+  // Load voices (some browsers load them async)
+  useEffect(() => {
+    const loadVoices = () => speechSynthRef.current.getVoices();
+    loadVoices();
+    if (speechSynthRef.current.onvoiceschanged !== undefined) {
+      speechSynthRef.current.onvoiceschanged = loadVoices;
+    }
+    // Cleanup: stop speech on unmount
+    return () => speechSynthRef.current.cancel();
+  }, []);
 
   if (!user) return (
     <>
@@ -1511,7 +1673,7 @@ export default function RealtyAI() {
                 </button>
               </div>
 
-              <button onClick={handleSend} disabled={loading} style={{
+              <button id="realtyai-send-btn" onClick={handleSend} disabled={loading} style={{
                 width: 48, height: 48, borderRadius: 14, border: "none",
                 background: theme.red, color: theme.white, cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -1523,6 +1685,50 @@ export default function RealtyAI() {
               >
                 {loading ? Icons.spinner : Icons.send}
               </button>
+            </div>
+
+            {/* *** VOICE MODE: Toggle + Status Bar *** */}
+            <div style={{
+              maxWidth: 820, margin: "4px auto 0", display: "flex", alignItems: "center",
+              justifyContent: "center", gap: 8,
+            }}>
+              <button onClick={toggleVoiceMode} title={voiceMode ? "Turn off voice mode" : "Turn on voice mode"} style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "6px 14px",
+                background: voiceMode ? "rgba(227,24,55,0.08)" : "transparent",
+                border: `1.5px solid ${voiceMode ? theme.red : theme.greyLight}`,
+                borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                fontFamily: theme.font, transition: "all 0.2s",
+                color: voiceMode ? theme.red : theme.grey,
+              }}
+              onMouseEnter={(e) => { if (!voiceMode) { e.currentTarget.style.borderColor = theme.red; e.currentTarget.style.color = theme.red; } }}
+              onMouseLeave={(e) => { if (!voiceMode) { e.currentTarget.style.borderColor = theme.greyLight; e.currentTarget.style.color = theme.grey; } }}
+              >
+                {voiceMode ? Icons.voiceOn : Icons.voiceOff}
+                {voiceMode ? "Voice On" : "Voice Mode"}
+              </button>
+
+              {/* Speaking indicator + stop button */}
+              {isSpeaking && (
+                <button onClick={stopSpeaking} style={{
+                  display: "flex", alignItems: "center", gap: 5, padding: "6px 12px",
+                  background: "rgba(227,24,55,0.08)", border: `1.5px solid ${theme.red}`,
+                  borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                  fontFamily: theme.font, color: theme.red, animation: "pulse 1.5s infinite",
+                }}>
+                  {Icons.stopSpeaking} Stop
+                </button>
+              )}
+
+              {/* Listening indicator */}
+              {voiceMode && listening && !isSpeaking && (
+                <span style={{
+                  fontSize: 12, color: theme.red, fontWeight: 600,
+                  animation: "pulse 1s infinite", display: "flex", alignItems: "center", gap: 4,
+                }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: theme.red, display: "inline-block" }}></span>
+                  Listening...
+                </span>
+              )}
             </div>
             <p style={{ textAlign: "center", fontSize: 11, color: "#999", marginTop: 8 }}>
               Realty AI searches Zillow, Realtor.com, Redfin, Homes.com, LoopNet, Crexi & BizBuySell

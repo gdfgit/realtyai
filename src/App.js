@@ -488,7 +488,7 @@ function RegistrationScreen({ onLogin }) {
 }
 
 // ─── CHAT MESSAGE COMPONENT ──────────────────────────────────────────
-function ChatMessage({ msg, index }) {
+function ChatMessage({ msg, index, profilePhoto, userInitials }) {
   const isUser = msg.role === "user";
 
   return (
@@ -498,14 +498,26 @@ function ChatMessage({ msg, index }) {
       animation: "fadeUp 0.35s ease-out", animationDelay: `${index * 0.05}s`,
       animationFillMode: "backwards", padding: "4px 0",
     }}>
-      <div style={{
-        width: 36, height: 36, borderRadius: 12, flexShrink: 0,
-        background: isUser ? theme.dark : theme.red,
-        display: "flex", alignItems: "center", justifyContent: "center", color: theme.white,
-        boxShadow: isUser ? "none" : "0 3px 12px rgba(227,24,55,0.2)",
-      }}>
-        {isUser ? Icons.user : Icons.bot}
-      </div>
+      {/* Avatar: logo for AI, photo/initials for user */}
+      {isUser ? (
+        profilePhoto ? (
+          <img src={profilePhoto} alt="" style={{
+            width: 36, height: 36, borderRadius: 12, flexShrink: 0, objectFit: "cover",
+          }} />
+        ) : (
+          <div style={{
+            width: 36, height: 36, borderRadius: 12, flexShrink: 0,
+            background: theme.dark,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: theme.white, fontSize: 13, fontWeight: 700,
+          }}>{userInitials || Icons.user}</div>
+        )
+      ) : (
+        <img src="/logo.png" alt="Realty AI" style={{
+          width: 36, height: 36, borderRadius: 12, flexShrink: 0,
+          boxShadow: "0 3px 12px rgba(227,24,55,0.2)",
+        }} />
+      )}
       <div style={{
         background: isUser ? theme.dark : theme.white,
         color: isUser ? theme.white : theme.dark,
@@ -836,6 +848,13 @@ export default function RealtyAI() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState(null);
+  // *** NEW: Account Settings + Search History modals ***
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
+  const [showSearchHistory, setShowSearchHistory] = useState(false);
+  const [searchHistory, setSearchHistory] = useState([]);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editLocation, setEditLocation] = useState("");
 
   const chatRef = useRef(null);
   const fileRef = useRef(null);
@@ -1017,6 +1036,10 @@ export default function RealtyAI() {
         fetchMortgageRate(),
       ]);
       const response = buildPropertyResponse(text, results, mortgageRate, isAddress);
+
+      // *** Track search in history ***
+      const queryType = isCommercial ? "Commercial" : isNewConst ? "New Construction" : "Residential";
+      setSearchHistory((prev) => [{ query: text, type: queryType, time: new Date(), resultCount: (results.results || []).length }, ...prev]);
 
       const words = response.split(" ");
       let streamed = "";
@@ -1216,10 +1239,14 @@ export default function RealtyAI() {
                 { label: "Listings", value: 3 },
                 { label: "Offers", value: 1 },
               ].map((stat, i) => (
-                <div key={i} style={{
+                <div key={i} onClick={() => { setSidebarOpen(false); setShowSearchHistory(true); }} style={{
                   flex: 1, background: theme.sidebarCardBg, border: `1px solid ${theme.sidebarCardBorder}`,
-                  borderRadius: 8, padding: "7px 6px", textAlign: "center",
-                }}>
+                  borderRadius: 8, padding: "7px 6px", textAlign: "center", cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = theme.sidebarCardBg}
+                >
                   <div style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>{stat.value}</div>
                   <div style={{ fontSize: 9, color: theme.sidebarTextMuted, letterSpacing: ".3px", marginTop: 1 }}>{stat.label}</div>
                 </div>
@@ -1340,10 +1367,10 @@ export default function RealtyAI() {
                   {/* Menu items */}
                   <div style={{ padding: 4 }}>
                     {[
-                      { icon: Icons.editProfile, label: "Edit profile" },
+                      { icon: Icons.editProfile, label: "Edit profile", action: () => { setEditName(user.name || ""); setShowAccountSettings(true); } },
                       { icon: Icons.subscription, label: "Manage subscription", action: () => setShowUpgradeModal(true) },
-                      { icon: Icons.searchHistory, label: "Search history" },
-                      { icon: Icons.settings, label: "Account settings" },
+                      { icon: Icons.searchHistory, label: "Search history", action: () => setShowSearchHistory(true) },
+                      { icon: Icons.settings, label: "Account settings", action: () => { setEditName(user.name || ""); setShowAccountSettings(true); } },
                     ].map((item, i) => (
                       <div key={i} onClick={() => { setShowAccountDropdown(false); item.action && item.action(); }} style={{
                         display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
@@ -1380,7 +1407,7 @@ export default function RealtyAI() {
             display: "flex", flexDirection: "column", gap: 16,
           }}>
             {messages.map((msg, i) => (
-              <ChatMessage key={i} msg={msg} index={i} />
+              <ChatMessage key={i} msg={msg} index={i} profilePhoto={profilePhoto} userInitials={userInitials} />
             ))}
             {loading && (
               <div style={{ display: "flex", gap: 12, maxWidth: 820, margin: "0 auto", animation: "fadeUp 0.3s ease-out" }}>
@@ -1633,6 +1660,231 @@ export default function RealtyAI() {
               <button onClick={() => setShowTourAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#555', minHeight: 36 }}>✕ Close</button>
             </div>
             <iframe ref={tourIframeRef} src="/schedule-tour.html" style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }} title="Schedule a Tour" />
+          </div>
+        </div>
+      )}
+
+      {/* *** ACCOUNT SETTINGS MODAL *** */}
+      {showAccountSettings && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 99999, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAccountSettings(false); }}
+        >
+          <div style={{
+            background: '#fff', borderRadius: 20, maxWidth: 480, width: '100%',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.2)', animation: 'fadeUp 0.3s ease-out',
+            overflow: 'hidden', maxHeight: '90vh', overflowY: 'auto',
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '20px 24px', borderBottom: '1px solid #f0f0f0',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: theme.dark, fontFamily: theme.fontDisplay, margin: 0 }}>Account Settings</h2>
+              <button onClick={() => setShowAccountSettings(false)} style={{
+                background: 'none', border: '1px solid #E5E7EB', borderRadius: 8,
+                padding: '4px 12px', fontSize: 13, cursor: 'pointer', color: '#555',
+              }}>✕</button>
+            </div>
+
+            <div style={{ padding: '20px 24px' }}>
+              {/* Profile Photo */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
+                <div style={{ position: 'relative' }}>
+                  {profilePhoto ? (
+                    <img src={profilePhoto} alt="" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e5e5' }} />
+                  ) : (
+                    <div style={{
+                      width: 64, height: 64, borderRadius: '50%', background: '#f0f0f0',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#999', fontWeight: 700, fontSize: 22, border: '2px solid #e5e5e5',
+                    }}>{userInitials}</div>
+                  )}
+                  <label style={{
+                    position: 'absolute', bottom: -2, right: -2,
+                    width: 24, height: 24, background: theme.red, borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '2px solid #fff', cursor: 'pointer',
+                  }}>
+                    <svg width="12" height="12" fill="none" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg>
+                    <input type="file" accept="image/*" hidden onChange={handleProfilePhoto} />
+                  </label>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 16, color: theme.dark }}>{user.name || "User"}</div>
+                  <div style={{ fontSize: 12, color: theme.grey }}>{user.email}</div>
+                </div>
+              </div>
+
+              {/* Editable Fields */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: theme.dark, marginBottom: 4 }}>Full Name</label>
+                <input value={editName} onChange={(e) => setEditName(e.target.value)} style={{
+                  width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 10,
+                  fontSize: 14, fontFamily: theme.font, outline: 'none',
+                }} onFocus={(e) => e.target.style.borderColor = theme.red}
+                onBlur={(e) => e.target.style.borderColor = '#E5E7EB'} />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: theme.dark, marginBottom: 4 }}>Email</label>
+                <input value={user.email} disabled style={{
+                  width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 10,
+                  fontSize: 14, fontFamily: theme.font, outline: 'none', background: '#f9f9f9', color: '#999',
+                }} />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: theme.dark, marginBottom: 4 }}>Phone</label>
+                <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="(555) 123-4567" style={{
+                  width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 10,
+                  fontSize: 14, fontFamily: theme.font, outline: 'none',
+                }} onFocus={(e) => e.target.style.borderColor = theme.red}
+                onBlur={(e) => e.target.style.borderColor = '#E5E7EB'} />
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: theme.dark, marginBottom: 4 }}>Location</label>
+                <input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Las Vegas, NV" style={{
+                  width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 10,
+                  fontSize: 14, fontFamily: theme.font, outline: 'none',
+                }} onFocus={(e) => e.target.style.borderColor = theme.red}
+                onBlur={(e) => e.target.style.borderColor = '#E5E7EB'} />
+              </div>
+
+              {/* Subscription Card */}
+              <div style={{
+                background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12,
+                padding: '14px 16px', marginBottom: 20,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: theme.dark }}>Current Plan</span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 4,
+                    background: userPlan === 'plus' ? '#4CAF50' : '#E5E7EB',
+                    color: userPlan === 'plus' ? '#fff' : '#666',
+                    textTransform: 'uppercase', letterSpacing: '.4px',
+                  }}>{userPlan === 'plus' ? 'PLUS' : 'FREE'}</span>
+                </div>
+                {userPlan === 'plus' ? (
+                  <p style={{ fontSize: 12, color: theme.grey, margin: 0 }}>Unlimited searches, all agents unlocked</p>
+                ) : (
+                  <button onClick={() => { setShowAccountSettings(false); setShowUpgradeModal(true); }} style={{
+                    width: '100%', padding: 10, background: theme.red, color: '#fff',
+                    border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: theme.font,
+                  }}>Upgrade to Plus</button>
+                )}
+              </div>
+
+              {/* Save / Cancel */}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => {
+                  if (editName && editName !== user.name) {
+                    const updated = { ...user, name: editName };
+                    setUser(updated);
+                    localStorage.setItem('realtyai_user', JSON.stringify(updated));
+                  }
+                  setShowAccountSettings(false);
+                }} style={{
+                  flex: 1, padding: 12, background: theme.red, color: '#fff',
+                  border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: theme.font,
+                }}>Save Changes</button>
+                <button onClick={() => setShowAccountSettings(false)} style={{
+                  flex: 1, padding: 12, background: 'transparent', color: theme.grey,
+                  border: `1px solid ${theme.greyLight}`, borderRadius: 10, fontSize: 14,
+                  cursor: 'pointer', fontFamily: theme.font,
+                }}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* *** SEARCH HISTORY MODAL *** */}
+      {showSearchHistory && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 99999, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowSearchHistory(false); }}
+        >
+          <div style={{
+            background: '#fff', borderRadius: 20, maxWidth: 520, width: '100%',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.2)', animation: 'fadeUp 0.3s ease-out',
+            overflow: 'hidden', maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '20px 24px', borderBottom: '1px solid #f0f0f0',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0,
+            }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: theme.dark, fontFamily: theme.fontDisplay, margin: 0 }}>Search History</h2>
+              <button onClick={() => setShowSearchHistory(false)} style={{
+                background: 'none', border: '1px solid #E5E7EB', borderRadius: 8,
+                padding: '4px 12px', fontSize: 13, cursor: 'pointer', color: '#555',
+              }}>✕</button>
+            </div>
+
+            {/* Stats summary */}
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 12 }}>
+              {[
+                { label: 'Total Searches', value: searchCount, color: theme.red },
+                { label: 'Listings', value: 3, color: '#8E44AD' },
+                { label: 'Offers', value: 1, color: '#27AE60' },
+              ].map((s, i) => (
+                <div key={i} style={{
+                  flex: 1, background: '#f9f9f9', borderRadius: 10, padding: '10px 8px', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
+                  <div style={{ fontSize: 10, color: theme.grey, marginTop: 2 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Search list */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px' }}>
+              {searchHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: theme.grey }}>
+                  <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.3 }}>🔍</div>
+                  <p style={{ fontSize: 14 }}>No searches yet this session.</p>
+                  <p style={{ fontSize: 12, color: '#bbb' }}>Your searches will appear here as you use Realty AI.</p>
+                </div>
+              ) : (
+                searchHistory.map((s, i) => (
+                  <div key={i} onClick={() => {
+                    setShowSearchHistory(false);
+                    setInput(s.query);
+                  }} style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '12px 10px',
+                    borderBottom: '1px solid #f5f5f5', cursor: 'pointer', borderRadius: 8,
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#fafafa'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                      background: s.type === 'Commercial' ? 'rgba(52,152,219,0.1)' : s.type === 'New Construction' ? 'rgba(46,204,113,0.1)' : 'rgba(227,24,55,0.08)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+                    }}>
+                      {s.type === 'Commercial' ? '🏢' : s.type === 'New Construction' ? '🏗️' : '🏠'}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 500, color: theme.dark, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.query}</div>
+                      <div style={{ fontSize: 11, color: theme.grey, marginTop: 2 }}>
+                        {s.type} · {s.resultCount} results · {s.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                    <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}

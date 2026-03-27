@@ -847,14 +847,25 @@ export default function RealtyAI() {
   // *** SIDEBAR: New state ***
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
-  const [profilePhoto, setProfilePhoto] = useState(null);
-  // *** NEW: Account Settings + Search History modals ***
+  // *** PERSISTED: Load from localStorage ***
+  const [profilePhoto, setProfilePhoto] = useState(() => {
+    try { return localStorage.getItem('realtyai_profilePhoto') || null; } catch { return null; }
+  });
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [showSearchHistory, setShowSearchHistory] = useState(false);
-  const [searchHistory, setSearchHistory] = useState([]);
+  const [searchHistory, setSearchHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('realtyai_searchHistory');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [editName, setEditName] = useState("");
-  const [editPhone, setEditPhone] = useState("");
-  const [editLocation, setEditLocation] = useState("");
+  const [editPhone, setEditPhone] = useState(() => {
+    try { return localStorage.getItem('realtyai_phone') || ""; } catch { return ""; }
+  });
+  const [editLocation, setEditLocation] = useState(() => {
+    try { return localStorage.getItem('realtyai_location') || ""; } catch { return ""; }
+  });
 
   const chatRef = useRef(null);
   const fileRef = useRef(null);
@@ -1039,7 +1050,12 @@ export default function RealtyAI() {
 
       // *** Track search in history ***
       const queryType = isCommercial ? "Commercial" : isNewConst ? "New Construction" : "Residential";
-      setSearchHistory((prev) => [{ query: text, type: queryType, time: new Date(), resultCount: (results.results || []).length }, ...prev]);
+      const newEntry = { query: text, type: queryType, time: new Date().toISOString(), resultCount: (results.results || []).length };
+      setSearchHistory((prev) => {
+        const updated = [newEntry, ...prev].slice(0, 100); // keep last 100
+        try { localStorage.setItem('realtyai_searchHistory', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
 
       const words = response.split(" ");
       let streamed = "";
@@ -1111,7 +1127,11 @@ export default function RealtyAI() {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (ev) => setProfilePhoto(ev.target.result);
+      reader.onload = (ev) => {
+        const photoData = ev.target.result;
+        setProfilePhoto(photoData);
+        try { localStorage.setItem('realtyai_profilePhoto', photoData); } catch (err) { console.log("Photo too large for localStorage"); }
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -1367,7 +1387,7 @@ export default function RealtyAI() {
                     {[
                       { icon: Icons.subscription, label: "Manage subscription", action: () => setShowUpgradeModal(true) },
                       { icon: Icons.searchHistory, label: "Search history", action: () => setShowSearchHistory(true) },
-                      { icon: Icons.settings, label: "Account settings", action: () => { setEditName(user.name || ""); setShowAccountSettings(true); } },
+                      { icon: Icons.settings, label: "Account settings", action: () => { setEditName(user.name || ""); setEditPhone(localStorage.getItem('realtyai_phone') || ""); setEditLocation(localStorage.getItem('realtyai_location') || ""); setShowAccountSettings(true); } },
                     ].map((item, i) => (
                       <div key={i} onClick={() => { setShowAccountDropdown(false); item.action && item.action(); }} style={{
                         display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
@@ -1778,10 +1798,18 @@ export default function RealtyAI() {
               {/* Save / Cancel */}
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={() => {
+                  // Save name
+                  const updated = { ...user, name: editName || user.name };
+                  setUser(updated);
+                  localStorage.setItem('realtyai_user', JSON.stringify(updated));
+                  // Save phone & location
+                  localStorage.setItem('realtyai_phone', editPhone);
+                  localStorage.setItem('realtyai_location', editLocation);
+                  // Update name in Supabase
                   if (editName && editName !== user.name) {
-                    const updated = { ...user, name: editName };
-                    setUser(updated);
-                    localStorage.setItem('realtyai_user', JSON.stringify(updated));
+                    supabaseRequest(`/users?email=eq.${encodeURIComponent(user.email)}`, {
+                      method: "PATCH", body: JSON.stringify({ name: editName }),
+                    }).catch(() => {});
                   }
                   setShowAccountSettings(false);
                 }} style={{
@@ -1874,7 +1902,7 @@ export default function RealtyAI() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 500, color: theme.dark, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.query}</div>
                       <div style={{ fontSize: 11, color: theme.grey, marginTop: 2 }}>
-                        {s.type} · {s.resultCount} results · {s.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {s.type} · {s.resultCount} results · {new Date(s.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
                     <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>

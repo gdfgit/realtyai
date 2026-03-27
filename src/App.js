@@ -24,6 +24,14 @@ const theme = {
   radiusSm: "10px",
   font: "'DM Sans', 'Segoe UI', sans-serif",
   fontDisplay: "'Playfair Display', Georgia, serif",
+  // *** SIDEBAR: Dark sidebar colors ***
+  sidebarBg: "#1a1a2e",
+  sidebarBorder: "rgba(255,255,255,0.06)",
+  sidebarText: "rgba(255,255,255,0.8)",
+  sidebarTextMuted: "rgba(255,255,255,0.35)",
+  sidebarTextDim: "rgba(255,255,255,0.25)",
+  sidebarCardBg: "rgba(255,255,255,0.05)",
+  sidebarCardBorder: "rgba(255,255,255,0.07)",
 };
 
 // ─── ICONS (inline SVGs) ─────────────────────────────────────────────
@@ -67,6 +75,43 @@ const Icons = {
   file: (
     <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><path d="M14 2v6h6" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/></svg>
   ),
+  // *** SIDEBAR: Agent SVG icons (red stroke, no emojis) ***
+  agentSell: (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="#E31837" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 22V12h6v10" stroke="#E31837" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+  ),
+  agentOffer: (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#E31837" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="#E31837" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+  ),
+  agentApproved: (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="#E31837" strokeWidth="2" strokeLinecap="round"/><path d="M22 4L12 14.01l-3-3" stroke="#E31837" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+  ),
+  agentLive: (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" stroke="#E31837" strokeWidth="2"/><path d="M8 21h8M12 17v4" stroke="#E31837" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="10" r="2" fill="#E31837"/></svg>
+  ),
+  // *** SIDEBAR: Hamburger menu icon for mobile ***
+  menu: (
+    <svg width="22" height="22" fill="none" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+  ),
+  // *** SIDEBAR: Dropdown chevron ***
+  chevronDown: (
+    <svg width="12" height="12" fill="none" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+  ),
+  // *** SIDEBAR: Account menu icons ***
+  editProfile: (
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.5"/></svg>
+  ),
+  subscription: (
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M1 10h22" stroke="currentColor" strokeWidth="1.5"/></svg>
+  ),
+  searchHistory: (
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+  ),
+  settings: (
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="1.5"/></svg>
+  ),
+  plusSmall: (
+    <svg width="10" height="10" fill="none" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg>
+  ),
 };
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────
@@ -83,6 +128,17 @@ const globalCSS = `
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
   input:-webkit-autofill { -webkit-box-shadow: 0 0 0 40px white inset !important; }
+  /* *** SIDEBAR: Mobile overlay *** */
+  @media (max-width: 768px) {
+    .sidebar-overlay { display: block !important; }
+    .sidebar-panel { position: fixed !important; left: -280px; z-index: 10000 !important; transition: left 0.3s ease !important; }
+    .sidebar-panel.open { left: 0 !important; }
+  }
+  @media (min-width: 769px) {
+    .sidebar-overlay { display: none !important; }
+    .sidebar-panel { position: relative !important; left: 0 !important; }
+    .mobile-menu-btn { display: none !important; }
+  }
 `;
 
 // ─── DEMO MODE ────────────────────────────────────────────────────────
@@ -632,7 +688,6 @@ function buildPropertyResponse(query, searchResults, mortgageRate, isAddressSear
     output += buildCMATable(price, sqft);
     output += buildConfidentTrigger(price, sqft);
     output += buildAreaLinks(exactAddress, encodedAddr);
-    output += buildCallToAction();
     return output;
   }
 
@@ -662,7 +717,6 @@ function buildPropertyResponse(query, searchResults, mortgageRate, isAddressSear
     output += buildCMATable(price, sqft);
     output += buildConfidentTrigger(price, sqft);
     output += buildAreaLinks(mapAddress, encodedAddr);
-    output += buildCallToAction();
   }
 
   if (isCommercial && results.length > 0) {
@@ -718,6 +772,7 @@ function buildConfidentTrigger(price, sqft) {
   return o;
 }
 
+// *** SIDEBAR CHANGE: Schedule a Tour moved here from buildCallToAction ***
 function buildAreaLinks(address, encodedAddr) {
   let o = `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   o += `📍 **Explore the Area** — ${address}\n\n`;
@@ -728,20 +783,13 @@ function buildAreaLinks(address, encodedAddr) {
   o += `[🌳 Parks](https://www.google.com/maps/search/parks+near+${encodedAddr})\n`;
   o += `[🏛️ County Assessor](https://www.google.com/maps/search/county+assessor+near+${encodedAddr})\n`;
   o += `[🗺️ Map](https://www.google.com/maps/search/${encodedAddr})\n`;
+  o += `[📅 Schedule a Tour](#schedule-tour)\n`;
   return o;
 }
 
-// *** CHANGE 2: Updated "Submit an Offer" link to #offer-agent (was external URL) ***
-function buildCallToAction() {
-  let o = `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  o += `🎯 **Take Action**\n\n`;
-  o += `[📅 Schedule a Tour](#schedule-tour)\n`;
-  o += `[🏡 Sell Your Property](#listing-agent)\n`;
-  o += `[📝 Submit an Offer](#offer-agent)\n`;
-  o += `[✅ Get Approved in 15 Minutes!](#mortgage-agent)\n`;
-  o += `[🎥 Live Stream](https://studio.restream.io/euf-vqup-uwl)\n`;
-  return o;
-}
+// *** SIDEBAR CHANGE: Agent links removed — they now live in the sidebar ***
+// buildCallToAction is no longer called from buildPropertyResponse
+// The agents are accessible via sidebar buttons, and Schedule a Tour is in buildAreaLinks
 
 function extractPrice(text) {
   const matches = text.match(/\$([0-9,]+(?:,\d{3})*)/g);
@@ -776,24 +824,27 @@ export default function RealtyAI() {
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [attachments, setAttachments] = useState([]);
-  // *** CHANGE 3: Added mortgage agent panel state ***
   const [showMortgageAgent, setShowMortgageAgent] = useState(false);
-  // *** OFFER AGENT: Added offer agent panel state ***
   const [showOfferAgent, setShowOfferAgent] = useState(false);
   const [showListingAgent, setShowListingAgent] = useState(false);
   const [showTourAgent, setShowTourAgent] = useState(false);
-  // *** STRIPE: Plan gating state ***
   const [userPlan, setUserPlan] = useState("free");
   const [searchCount, setSearchCount] = useState(0);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeBillingCycle, setUpgradeBillingCycle] = useState("monthly");
+  // *** SIDEBAR: New state ***
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showAccountDropdown, setShowAccountDropdown] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState(null);
+
   const chatRef = useRef(null);
   const fileRef = useRef(null);
   const recognitionRef = useRef(null);
-  // *** OFFER AGENT: Ref for the offer agent iframe ***
   const offerIframeRef = useRef(null);
   const listingIframeRef = useRef(null);
   const tourIframeRef = useRef(null);
+  // *** SIDEBAR: Dropdown ref for click-outside ***
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     if (chatRef.current) {
@@ -801,7 +852,18 @@ export default function RealtyAI() {
     }
   }, [messages, loading]);
 
-  // *** STRIPE: Fetch plan on load (for returning users / after Stripe redirect) ***
+  // *** SIDEBAR: Close dropdown on click outside ***
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowAccountDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch plan on load
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -821,7 +883,6 @@ export default function RealtyAI() {
           }
         }
       } catch (e) { console.error("Plan fetch error:", e); }
-      // Check if returning from Stripe checkout
       const params = new URLSearchParams(window.location.search);
       if (params.get("upgraded") === "true") {
         setUserPlan("plus");
@@ -841,7 +902,7 @@ export default function RealtyAI() {
     }
   }, [user]);
 
-  // *** CHANGE 4: Intercept #mortgage-agent AND #offer-agent link clicks ***
+  // Intercept agent link clicks
   useEffect(() => {
     const handleClick = (e) => {
       const link = e.target.closest('a');
@@ -850,13 +911,11 @@ export default function RealtyAI() {
         if (userPlan === 'free') { setShowUpgradeModal(true); return; }
         setShowMortgageAgent(true);
       }
-      // *** OFFER AGENT: Intercept #offer-agent clicks ***
       if (link && link.getAttribute('href') === '#offer-agent') {
         e.preventDefault();
         if (userPlan === 'free') { setShowUpgradeModal(true); return; }
         setShowOfferAgent(true);
       }
-      // *** LISTING AGENT: Intercept #listing-agent clicks ***
       if (link && link.getAttribute('href') === '#listing-agent') {
         e.preventDefault();
         if (userPlan === 'free') { setShowUpgradeModal(true); return; }
@@ -877,8 +936,7 @@ export default function RealtyAI() {
       if (e.data === 'closeMortgageAgent') {
         setShowMortgageAgent(false);
       }
-      // *** OFFER AGENT: Listen for close message from Offer Agent iframe ***
-       if (e.data?.type === 'NAVIGATE' && e.data.to === 'dashboard') {
+      if (e.data?.type === 'NAVIGATE' && e.data.to === 'dashboard') {
         setShowOfferAgent(false);
         setShowListingAgent(false);
         setShowTourAgent(false);
@@ -892,7 +950,6 @@ export default function RealtyAI() {
     const text = input.trim();
     if (!text && attachments.length === 0) return;
 
-    // *** STRIPE: Search limit check for free users ***
     const lowerText = text.toLowerCase();
     const isNonRealEstate = lowerText.match(/^(write me a poem|tell me a joke|what is the meaning of life|who is the president|write code|help me with math|translate|recipe|cook|weather forecast|stock market|crypto|bitcoin|sports score|movie review|book summary|play a game)/);
     const isGreeting = lowerText.match(/^(hi|hello|hey|good morning|good afternoon|good evening|what can you do|help|how are you)/);
@@ -982,7 +1039,6 @@ export default function RealtyAI() {
         content: "I encountered an issue searching for properties. Please try again with more specific criteria like location, price range, or property type.",
       }]);
     }
-    // *** STRIPE: Increment search count for free users ***
     if (userPlan === "free") {
       const newCount = searchCount + 1;
       setSearchCount(newCount);
@@ -1027,18 +1083,46 @@ export default function RealtyAI() {
     setAttachments((prev) => [...prev, ...files.map((f) => ({ name: f.name, size: f.size, type: f.type }))]);
   };
 
+  // *** SIDEBAR: Handle profile photo upload ***
+  const handleProfilePhoto = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setProfilePhoto(ev.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // *** SIDEBAR: Agent click handler (used by sidebar buttons) ***
+  const handleAgentClick = (agent) => {
+    setSidebarOpen(false); // close mobile sidebar
+    if (agent === 'listing') {
+      if (userPlan === 'free') { setShowUpgradeModal(true); return; }
+      setShowListingAgent(true);
+    } else if (agent === 'offer') {
+      if (userPlan === 'free') { setShowUpgradeModal(true); return; }
+      setShowOfferAgent(true);
+    } else if (agent === 'mortgage') {
+      if (userPlan === 'free') { setShowUpgradeModal(true); return; }
+      setShowMortgageAgent(true);
+    } else if (agent === 'live') {
+      window.open('https://studio.restream.io/euf-vqup-uwl', '_blank');
+    }
+  };
+
+  // *** SIDEBAR: User initials helper ***
+  const userInitials = user ? (user.name || user.email || "U").split(" ").map(w => w[0]).join("").toUpperCase().substring(0, 2) : "U";
+
   if (!user) return (
     <>
       <style>{globalCSS}</style>
       <RegistrationScreen onLogin={async (userData) => {
         setUser(userData);
         localStorage.setItem('realtyai_user', JSON.stringify(userData));
-        // Fetch user plan from Supabase
         try {
           const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(userData.email)}&select=plan,search_count,search_reset_date`, { method: "GET" });
           if (data && data.length > 0) {
             setUserPlan(data[0].plan || "free");
-            // Reset search count monthly
             const resetDate = new Date(data[0].search_reset_date || Date.now());
             const now = new Date();
             if (now.getMonth() !== resetDate.getMonth() || now.getFullYear() !== resetDate.getFullYear()) {
@@ -1051,7 +1135,6 @@ export default function RealtyAI() {
             }
           }
         } catch (e) { console.error("Plan fetch error:", e); }
-        // Check if returning from Stripe checkout
         const params = new URLSearchParams(window.location.search);
         if (params.get("upgraded") === "true") {
           setUserPlan("plus");
@@ -1064,168 +1147,357 @@ export default function RealtyAI() {
   return (
     <>
       <style>{globalCSS}</style>
-      <div style={{
-        height: "100vh", display: "flex", flexDirection: "column",
-        background: theme.offWhite, fontFamily: theme.font,
-      }}>
-        {/* Header */}
-        <header style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "12px 24px", background: theme.white,
-          borderBottom: `1px solid ${theme.greyLight}`,
-          boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <img src="/logo.png" alt="Realty AI" style={{
-              width: 42, height: 42, borderRadius: 12,
-              boxShadow: "0 3px 10px rgba(227,24,55,0.2)",
-            }} />
+      {/* *** SIDEBAR CHANGE: Outer wrapper is now flex ROW instead of flex COLUMN *** */}
+      <div style={{ height: "100vh", display: "flex", flexDirection: "row", fontFamily: theme.font }}>
+
+        {/* *** SIDEBAR: Mobile overlay backdrop *** */}
+        {sidebarOpen && (
+          <div
+            className="sidebar-overlay"
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+              background: "rgba(0,0,0,0.5)", zIndex: 9999,
+            }}
+          />
+        )}
+
+        {/* ═══ SIDEBAR ═══ */}
+        <aside
+          className={`sidebar-panel ${sidebarOpen ? 'open' : ''}`}
+          style={{
+            width: 250, height: "100vh", background: theme.sidebarBg,
+            borderRight: `1px solid ${theme.sidebarBorder}`,
+            display: "flex", flexDirection: "column", flexShrink: 0,
+            zIndex: 10001,
+          }}
+        >
+          {/* Brand Header */}
+          <div style={{
+            padding: "14px 16px", display: "flex", alignItems: "center", gap: 10,
+            borderBottom: `1px solid ${theme.sidebarBorder}`,
+          }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: 10, background: theme.red,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#fff", fontWeight: 800, fontSize: 13, flexShrink: 0,
+              letterSpacing: "-.5px",
+            }}>RA</div>
             <div>
-              <h1 style={{ fontFamily: theme.fontDisplay, fontSize: 20, fontWeight: 700, color: theme.dark, lineHeight: 1.2 }}>
-                Realty AI
-              </h1>
-              <p style={{ fontSize: 11, color: theme.grey, fontWeight: 500 }}>AI Real Estate Assistant</p>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "#fff", letterSpacing: ".2px" }}>Realty AI</div>
+              <div style={{ fontSize: 10.5, color: theme.sidebarTextMuted }}>AI Real Estate Assistant</div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 13, color: theme.grey }}>{user.email}</span>
-            <button onClick={() => { localStorage.removeItem('realtyai_user'); setUser(null); setMessages([]); }} style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
-              background: "none", border: `1px solid ${theme.greyLight}`, borderRadius: 10,
-              cursor: "pointer", color: theme.grey, fontSize: 13, fontFamily: theme.font,
-              transition: "all 0.2s",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = theme.red; e.currentTarget.style.color = theme.red; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = theme.greyLight; e.currentTarget.style.color = theme.grey; }}
-            >
-              {Icons.logout} Sign Out
-            </button>
-          </div>
-        </header>
 
-        {/* Chat Area */}
-        <div ref={chatRef} style={{
-          flex: 1, overflowY: "auto", padding: "24px 20px",
-          display: "flex", flexDirection: "column", gap: 16,
-        }}>
-          {messages.map((msg, i) => (
-            <ChatMessage key={i} msg={msg} index={i} />
-          ))}
-          {loading && (
-            <div style={{ display: "flex", gap: 12, maxWidth: 820, margin: "0 auto", animation: "fadeUp 0.3s ease-out" }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: 12, flexShrink: 0,
-                background: theme.red, display: "flex", alignItems: "center", justifyContent: "center", color: theme.white,
-              }}>{Icons.bot}</div>
-              <div style={{
-                background: theme.white, padding: "14px 18px", borderRadius: 16,
-                borderTopLeftRadius: 4, boxShadow: theme.shadow,
-              }}>
-                <TypingDots />
+          {/* User Account Card */}
+          <div style={{ padding: "14px 16px", borderBottom: `1px solid ${theme.sidebarBorder}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              {profilePhoto ? (
+                <img src={profilePhoto} alt="" style={{
+                  width: 36, height: 36, borderRadius: "50%", objectFit: "cover",
+                  border: "1.5px solid rgba(255,255,255,0.12)", flexShrink: 0,
+                }} />
+              ) : (
+                <div style={{
+                  width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.1)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "rgba(255,255,255,0.65)", fontWeight: 700, fontSize: 13, flexShrink: 0,
+                  border: "1.5px solid rgba(255,255,255,0.1)",
+                }}>{userInitials}</div>
+              )}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 13.5, color: "#fff" }}>{user.name || "User"}</div>
+                <div style={{ fontSize: 11, color: theme.sidebarTextMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
               </div>
             </div>
-          )}
-        </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[
+                { label: "Searches", value: searchCount },
+                { label: "Listings", value: 3 },
+                { label: "Offers", value: 1 },
+              ].map((stat, i) => (
+                <div key={i} style={{
+                  flex: 1, background: theme.sidebarCardBg, border: `1px solid ${theme.sidebarCardBorder}`,
+                  borderRadius: 8, padding: "7px 6px", textAlign: "center",
+                }}>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>{stat.value}</div>
+                  <div style={{ fontSize: 9, color: theme.sidebarTextMuted, letterSpacing: ".3px", marginTop: 1 }}>{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-        {/* Attachments Preview */}
-        {attachments.length > 0 && (
-          <div style={{
-            padding: "8px 24px", background: theme.white, borderTop: `1px solid ${theme.greyLight}`,
-            display: "flex", gap: 8, flexWrap: "wrap",
-          }}>
-            {attachments.map((a, i) => (
-              <div key={i} style={{
-                display: "flex", alignItems: "center", gap: 6, background: "#FEF2F2",
-                padding: "6px 12px", borderRadius: 8, fontSize: 12, color: theme.dark,
-              }}>
-                {Icons.file} {a.name}
-                <button onClick={() => setAttachments((p) => p.filter((_, j) => j !== i))} style={{
-                  background: "none", border: "none", cursor: "pointer", color: theme.red, fontSize: 16, lineHeight: 1,
-                }}>×</button>
+          {/* Agents */}
+          <div style={{ padding: "14px 16px", flex: 1 }}>
+            <div style={{
+              fontSize: 11, fontWeight: 700, textTransform: "uppercase",
+              letterSpacing: "1.5px", color: theme.sidebarTextDim, marginBottom: 12,
+            }}>Agents</div>
+            {[
+              { icon: Icons.agentSell, label: "Sell your property", agent: "listing" },
+              { icon: Icons.agentOffer, label: "Submit an offer", agent: "offer" },
+              { icon: Icons.agentApproved, label: "Get approved", agent: "mortgage" },
+              { icon: Icons.agentLive, label: "Live stream", agent: "live" },
+            ].map((item, i) => (
+              <div key={i} onClick={() => handleAgentClick(item.agent)} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "10px 0",
+                cursor: "pointer", transition: "opacity 0.15s",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = "0.7"}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
+              >
+                {item.icon}
+                <span style={{ fontSize: 14, fontWeight: 500, color: theme.sidebarText }}>{item.label}</span>
               </div>
             ))}
           </div>
-        )}
+        </aside>
 
-        {/* Input Bar */}
-        <div style={{
-          padding: "16px 20px", background: theme.white,
-          borderTop: `1px solid ${theme.greyLight}`,
-          boxShadow: "0 -2px 12px rgba(0,0,0,0.03)",
-        }}>
-          <div style={{
-            maxWidth: 820, margin: "0 auto", display: "flex", gap: 10, alignItems: "center",
+        {/* ═══ MAIN CONTENT COLUMN (header + chat + input) ═══ */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", background: theme.offWhite, minWidth: 0 }}>
+
+          {/* Header */}
+          <header style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "12px 24px", background: theme.white,
+            borderBottom: `1px solid ${theme.greyLight}`,
+            boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
           }}>
-            <button onClick={() => fileRef.current?.click()} style={{
-              width: 42, height: 42, borderRadius: 12, border: `2px solid ${theme.greyLight}`,
-              background: theme.white, cursor: "pointer", display: "flex",
-              alignItems: "center", justifyContent: "center", color: theme.grey,
-              flexShrink: 0, transition: "all 0.2s",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = theme.red; e.currentTarget.style.color = theme.red; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = theme.greyLight; e.currentTarget.style.color = theme.grey; }}
-            >
-              {Icons.plus}
-            </button>
-            <input ref={fileRef} type="file" multiple hidden
-              accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"
-              onChange={handleFiles} />
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {/* Mobile hamburger */}
+              <button className="mobile-menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)} style={{
+                background: "none", border: "none", cursor: "pointer", color: theme.dark,
+                padding: 4, display: "flex",
+              }}>{Icons.menu}</button>
+              <img src="/logo.png" alt="Realty AI" style={{
+                width: 42, height: 42, borderRadius: 12,
+                boxShadow: "0 3px 10px rgba(227,24,55,0.2)",
+              }} />
+              <div>
+                <h1 style={{ fontFamily: theme.fontDisplay, fontSize: 20, fontWeight: 700, color: theme.dark, lineHeight: 1.2 }}>
+                  Realty AI
+                </h1>
+                <p style={{ fontSize: 11, color: theme.grey, fontWeight: 500 }}>AI Real Estate Assistant</p>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative" }} ref={dropdownRef}>
+              {/* Plan badge */}
+              {userPlan === "plus" && (
+                <div style={{
+                  fontSize: 10, fontWeight: 700, background: "#4CAF50", color: "#fff",
+                  padding: "3px 10px", borderRadius: 4, letterSpacing: ".4px", textTransform: "uppercase",
+                }}>PLUS</div>
+              )}
+              {/* Email dropdown trigger */}
+              <span
+                onClick={() => setShowAccountDropdown(!showAccountDropdown)}
+                style={{ fontSize: 13, color: theme.grey, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+              >
+                {user.email} {Icons.chevronDown}
+              </span>
 
-            <div style={{ flex: 1, position: "relative" }}>
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                placeholder="Search properties... (e.g., 3 bed homes in San Diego)"
-                style={{
-                  width: "100%", padding: "13px 52px 13px 18px",
-                  border: `2px solid ${theme.greyLight}`, borderRadius: 14,
-                  fontSize: 15, fontFamily: theme.font, outline: "none",
-                  transition: "border-color 0.2s", background: theme.offWhite,
-                }}
-                onFocus={(e) => e.target.style.borderColor = theme.red}
-                onBlur={(e) => e.target.style.borderColor = theme.greyLight}
-              />
-              <button onClick={toggleVoice} style={{
-                position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
-                background: "none", border: "none", cursor: "pointer",
-                color: listening ? theme.red : theme.grey,
-                animation: listening ? "pulse 1s infinite" : "none",
-              }}>
-                {listening ? Icons.micActive : Icons.mic}
+              {/* *** Account Dropdown *** */}
+              {showAccountDropdown && (
+                <div style={{
+                  position: "absolute", top: 36, right: 0, width: 240,
+                  background: "#fff", border: "1px solid #e5e5e5", borderRadius: 12,
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 100, overflow: "hidden",
+                  animation: "fadeUp 0.15s ease-out",
+                }}>
+                  {/* Profile section */}
+                  <div style={{
+                    padding: 14, borderBottom: "1px solid #f0f0f0",
+                    display: "flex", alignItems: "center", gap: 10,
+                  }}>
+                    <div style={{ position: "relative" }}>
+                      {profilePhoto ? (
+                        <img src={profilePhoto} alt="" style={{
+                          width: 42, height: 42, borderRadius: "50%", objectFit: "cover",
+                          border: "1.5px solid #e5e5e5",
+                        }} />
+                      ) : (
+                        <div style={{
+                          width: 42, height: 42, borderRadius: "50%", background: "#f0f0f0",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "#999", fontWeight: 700, fontSize: 14, border: "1.5px solid #e5e5e5",
+                        }}>{userInitials}</div>
+                      )}
+                      <label style={{
+                        position: "absolute", bottom: -2, right: -2,
+                        width: 18, height: 18, background: theme.red, borderRadius: "50%",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        border: "2px solid #fff", cursor: "pointer",
+                      }}>
+                        {Icons.plusSmall}
+                        <input type="file" accept="image/*" hidden onChange={handleProfilePhoto} />
+                      </label>
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13.5, color: "#333" }}>{user.name || "User"}</div>
+                      <div style={{ fontSize: 11, color: theme.red, cursor: "pointer" }}>Upload photo</div>
+                    </div>
+                  </div>
+                  {/* Menu items */}
+                  <div style={{ padding: 4 }}>
+                    {[
+                      { icon: Icons.editProfile, label: "Edit profile" },
+                      { icon: Icons.subscription, label: "Manage subscription", action: () => setShowUpgradeModal(true) },
+                      { icon: Icons.searchHistory, label: "Search history" },
+                      { icon: Icons.settings, label: "Account settings" },
+                    ].map((item, i) => (
+                      <div key={i} onClick={() => { setShowAccountDropdown(false); item.action && item.action(); }} style={{
+                        display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+                        borderRadius: 8, cursor: "pointer", fontSize: 13, color: "#444",
+                        transition: "background 0.1s",
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = "#f5f5f5"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                      >{item.icon} {item.label}</div>
+                    ))}
+                  </div>
+                  {/* Sign out */}
+                  <div style={{ borderTop: "1px solid #f0f0f0", padding: 4 }}>
+                    <div onClick={() => {
+                      localStorage.removeItem('realtyai_user');
+                      setUser(null); setMessages([]); setShowAccountDropdown(false);
+                    }} style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+                      borderRadius: 8, cursor: "pointer", fontSize: 13, color: "#e74c3c",
+                      transition: "background 0.1s",
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "#fef2f2"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                    >{Icons.logout} Sign out</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </header>
+
+          {/* Chat Area — UNCHANGED */}
+          <div ref={chatRef} style={{
+            flex: 1, overflowY: "auto", padding: "24px 20px",
+            display: "flex", flexDirection: "column", gap: 16,
+          }}>
+            {messages.map((msg, i) => (
+              <ChatMessage key={i} msg={msg} index={i} />
+            ))}
+            {loading && (
+              <div style={{ display: "flex", gap: 12, maxWidth: 820, margin: "0 auto", animation: "fadeUp 0.3s ease-out" }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 12, flexShrink: 0,
+                  background: theme.red, display: "flex", alignItems: "center", justifyContent: "center", color: theme.white,
+                }}>{Icons.bot}</div>
+                <div style={{
+                  background: theme.white, padding: "14px 18px", borderRadius: 16,
+                  borderTopLeftRadius: 4, boxShadow: theme.shadow,
+                }}>
+                  <TypingDots />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Attachments Preview — UNCHANGED */}
+          {attachments.length > 0 && (
+            <div style={{
+              padding: "8px 24px", background: theme.white, borderTop: `1px solid ${theme.greyLight}`,
+              display: "flex", gap: 8, flexWrap: "wrap",
+            }}>
+              {attachments.map((a, i) => (
+                <div key={i} style={{
+                  display: "flex", alignItems: "center", gap: 6, background: "#FEF2F2",
+                  padding: "6px 12px", borderRadius: 8, fontSize: 12, color: theme.dark,
+                }}>
+                  {Icons.file} {a.name}
+                  <button onClick={() => setAttachments((p) => p.filter((_, j) => j !== i))} style={{
+                    background: "none", border: "none", cursor: "pointer", color: theme.red, fontSize: 16, lineHeight: 1,
+                  }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Input Bar — UNCHANGED */}
+          <div style={{
+            padding: "16px 20px", background: theme.white,
+            borderTop: `1px solid ${theme.greyLight}`,
+            boxShadow: "0 -2px 12px rgba(0,0,0,0.03)",
+          }}>
+            <div style={{
+              maxWidth: 820, margin: "0 auto", display: "flex", gap: 10, alignItems: "center",
+            }}>
+              <button onClick={() => fileRef.current?.click()} style={{
+                width: 42, height: 42, borderRadius: 12, border: `2px solid ${theme.greyLight}`,
+                background: theme.white, cursor: "pointer", display: "flex",
+                alignItems: "center", justifyContent: "center", color: theme.grey,
+                flexShrink: 0, transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = theme.red; e.currentTarget.style.color = theme.red; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = theme.greyLight; e.currentTarget.style.color = theme.grey; }}
+              >
+                {Icons.plus}
+              </button>
+              <input ref={fileRef} type="file" multiple hidden
+                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"
+                onChange={handleFiles} />
+
+              <div style={{ flex: 1, position: "relative" }}>
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                  placeholder="Search properties... (e.g., 3 bed homes in San Diego)"
+                  style={{
+                    width: "100%", padding: "13px 52px 13px 18px",
+                    border: `2px solid ${theme.greyLight}`, borderRadius: 14,
+                    fontSize: 15, fontFamily: theme.font, outline: "none",
+                    transition: "border-color 0.2s", background: theme.offWhite,
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = theme.red}
+                  onBlur={(e) => e.target.style.borderColor = theme.greyLight}
+                />
+                <button onClick={toggleVoice} style={{
+                  position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                  background: "none", border: "none", cursor: "pointer",
+                  color: listening ? theme.red : theme.grey,
+                  animation: listening ? "pulse 1s infinite" : "none",
+                }}>
+                  {listening ? Icons.micActive : Icons.mic}
+                </button>
+              </div>
+
+              <button onClick={handleSend} disabled={loading} style={{
+                width: 48, height: 48, borderRadius: 14, border: "none",
+                background: theme.red, color: theme.white, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0, boxShadow: "0 3px 12px rgba(227,24,55,0.25)",
+                transition: "all 0.2s", opacity: loading ? 0.6 : 1,
+              }}
+              onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = theme.redDark; }}
+              onMouseLeave={(e) => e.currentTarget.style.background = theme.red}
+              >
+                {loading ? Icons.spinner : Icons.send}
               </button>
             </div>
-
-            <button onClick={handleSend} disabled={loading} style={{
-              width: 48, height: 48, borderRadius: 14, border: "none",
-              background: theme.red, color: theme.white, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0, boxShadow: "0 3px 12px rgba(227,24,55,0.25)",
-              transition: "all 0.2s", opacity: loading ? 0.6 : 1,
-            }}
-            onMouseEnter={(e) => { if (!loading) e.currentTarget.style.background = theme.redDark; }}
-            onMouseLeave={(e) => e.currentTarget.style.background = theme.red}
-            >
-              {loading ? Icons.spinner : Icons.send}
-            </button>
+            <p style={{ textAlign: "center", fontSize: 11, color: "#999", marginTop: 8 }}>
+              Realty AI searches Zillow, Realtor.com, Redfin, Homes.com, LoopNet, Crexi & BizBuySell
+              {userPlan === "free" && (
+                <span style={{ display: "block", marginTop: 2, color: searchCount >= 40 ? theme.red : "#999" }}>
+                  {50 - searchCount} searches remaining this month · <button onClick={() => setShowUpgradeModal(true)} style={{ background: "none", border: "none", color: theme.red, cursor: "pointer", fontFamily: theme.font, fontSize: 11, fontWeight: 600, textDecoration: "underline" }}>Upgrade to Plus</button>
+                </span>
+              )}
+              {userPlan === "plus" && (
+                <span style={{ display: "block", marginTop: 2, color: "#27ae60" }}>
+                  ✓ Realty AI Plus — Unlimited searches
+                </span>
+              )}
+            </p>
           </div>
-          <p style={{ textAlign: "center", fontSize: 11, color: "#999", marginTop: 8 }}>
-            Realty AI searches Zillow, Realtor.com, Redfin, Homes.com, LoopNet, Crexi & BizBuySell
-            {userPlan === "free" && (
-              <span style={{ display: "block", marginTop: 2, color: searchCount >= 40 ? theme.red : "#999" }}>
-                {50 - searchCount} searches remaining this month · <button onClick={() => setShowUpgradeModal(true)} style={{ background: "none", border: "none", color: theme.red, cursor: "pointer", fontFamily: theme.font, fontSize: 11, fontWeight: 600, textDecoration: "underline" }}>Upgrade to Plus</button>
-              </span>
-            )}
-            {userPlan === "plus" && (
-              <span style={{ display: "block", marginTop: 2, color: "#27ae60" }}>
-                ✓ Realty AI Plus — Unlimited searches
-              </span>
-            )}
-          </p>
-        </div>
-      </div>
+        </div>{/* END main content column */}
+      </div>{/* END outer flex row */}
 
-      {/* *** CHANGE 5: Mortgage Agent Overlay Panel — Mobile Optimized *** */}
+      {/* Mortgage Agent Overlay — UNCHANGED */}
       {showMortgageAgent && (
         <div
           style={{
@@ -1245,46 +1517,22 @@ export default function RealtyAI() {
             position: 'relative', overflow: 'hidden',
             animation: 'slideUp 0.3s ease-out',
           }}>
-            {/* Header bar with close button */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '10px 16px',
-              background: '#fff',
-              borderBottom: '1px solid #E5E7EB',
+              padding: '10px 16px', background: '#fff', borderBottom: '1px solid #E5E7EB',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{
-                  width: 28, height: 28, background: '#E31837', borderRadius: 6,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontWeight: 800, fontSize: 12,
-                }}>R</div>
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>
-                  Get Approved!
-                </span>
+                <div style={{ width: 28, height: 28, background: '#E31837', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 12 }}>R</div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>Get Approved!</span>
               </div>
-              <button
-                onClick={() => setShowMortgageAgent(false)}
-                style={{
-                  background: 'none', border: '1px solid #E5E7EB',
-                  borderRadius: 8, padding: '6px 14px', fontSize: 13,
-                  fontWeight: 600, cursor: 'pointer', fontFamily: theme.font,
-                  color: '#555', minHeight: 36,
-                }}
-              >
-                ✕ Close
-              </button>
+              <button onClick={() => setShowMortgageAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
             </div>
-            {/* Mortgage Agent iframe */}
-            <iframe
-              src="/mortgage-agent.html"
-              style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }}
-              title="Mortgage Application"
-            />
+            <iframe src="/mortgage-agent.html" style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }} title="Mortgage Application" />
           </div>
         </div>
       )}
 
-      {/* *** OFFER AGENT: Overlay Panel — Same pattern as Mortgage Agent *** */}
+      {/* Offer Agent Overlay — UNCHANGED */}
       {showOfferAgent && (
         <div
           style={{
@@ -1304,47 +1552,22 @@ export default function RealtyAI() {
             position: 'relative', overflow: 'hidden',
             animation: 'slideUp 0.3s ease-out',
           }}>
-            {/* Header bar with close button */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '10px 16px',
-              background: '#fff',
-              borderBottom: '1px solid #E5E7EB',
+              padding: '10px 16px', background: '#fff', borderBottom: '1px solid #E5E7EB',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{
-                  width: 28, height: 28, background: '#E31837', borderRadius: 6,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontWeight: 800, fontSize: 12,
-                }}>R</div>
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>
-                  Submit an Offer
-                </span>
+                <div style={{ width: 28, height: 28, background: '#E31837', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 12 }}>R</div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>Submit an Offer</span>
               </div>
-              <button
-                onClick={() => setShowOfferAgent(false)}
-                style={{
-                  background: 'none', border: '1px solid #E5E7EB',
-                  borderRadius: 8, padding: '6px 14px', fontSize: 13,
-                  fontWeight: 600, cursor: 'pointer', fontFamily: theme.font,
-                  color: '#555', minHeight: 36,
-                }}
-              >
-                ✕ Close
-              </button>
+              <button onClick={() => setShowOfferAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
             </div>
-            {/* Offer Agent iframe */}
-            <iframe
-              ref={offerIframeRef}
-              src="/offer-agent.html"
-              style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }}
-              title="Submit an Offer"
-            />
+            <iframe ref={offerIframeRef} src="/offer-agent.html" style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }} title="Submit an Offer" />
           </div>
         </div>
       )}
 
-      {/* *** LISTING AGENT: Overlay Panel — Same pattern as Offer Agent *** */}
+      {/* Listing Agent Overlay — UNCHANGED */}
       {showListingAgent && (
         <div
           style={{
@@ -1364,46 +1587,22 @@ export default function RealtyAI() {
             position: 'relative', overflow: 'hidden',
             animation: 'slideUp 0.3s ease-out',
           }}>
-            {/* Header bar with close button */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '10px 16px',
-              background: '#fff',
-              borderBottom: '1px solid #E5E7EB',
+              padding: '10px 16px', background: '#fff', borderBottom: '1px solid #E5E7EB',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{
-                  width: 28, height: 28, background: '#E31837', borderRadius: 6,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontWeight: 800, fontSize: 12,
-                }}>R</div>
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>
-                  Sell Your Property
-                </span>
+                <div style={{ width: 28, height: 28, background: '#E31837', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 12 }}>R</div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>Sell Your Property</span>
               </div>
-              <button
-                onClick={() => setShowListingAgent(false)}
-                style={{
-                  background: 'none', border: '1px solid #E5E7EB',
-                  borderRadius: 8, padding: '6px 14px', fontSize: 13,
-                  fontWeight: 600, cursor: 'pointer', fontFamily: theme.font,
-                  color: '#555', minHeight: 36,
-                }}
-              >
-                ✕ Close
-              </button>
+              <button onClick={() => setShowListingAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
             </div>
-            {/* Listing Agent iframe */}
-            <iframe
-              ref={listingIframeRef}
-              src="/listing-agent.html"
-              style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }}
-              title="Sell Your Property"
-            />
+            <iframe ref={listingIframeRef} src="/listing-agent.html" style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }} title="Sell Your Property" />
           </div>
         </div>
       )}
-        {/* TOUR AGENT OVERLAY */}
+
+      {/* Tour Agent Overlay — UNCHANGED */}
       {showTourAgent && (
         <div
           style={{
@@ -1425,78 +1624,43 @@ export default function RealtyAI() {
           }}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '10px 16px',
-              background: '#fff',
-              borderBottom: '1px solid #E5E7EB',
+              padding: '10px 16px', background: '#fff', borderBottom: '1px solid #E5E7EB',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{
-                  width: 28, height: 28, background: '#E31837', borderRadius: 6,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontWeight: 800, fontSize: 12,
-                }}>R</div>
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A' }}>
-                  Schedule a Tour
-                </span>
+                <div style={{ width: 28, height: 28, background: '#E31837', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 12 }}>R</div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A' }}>Schedule a Tour</span>
               </div>
-              <button
-                onClick={() => setShowTourAgent(false)}
-                style={{
-                  background: 'none', border: '1px solid #E5E7EB',
-                  borderRadius: 8, padding: '6px 14px', fontSize: 13,
-                  fontWeight: 600, cursor: 'pointer', color: '#555', minHeight: 36,
-                }}
-              >
-                ✕ Close
-              </button>
+              <button onClick={() => setShowTourAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#555', minHeight: 36 }}>✕ Close</button>
             </div>
-            <iframe
-              ref={tourIframeRef}
-              src="/schedule-tour.html"
-              style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }}
-              title="Schedule a Tour"
-            />
+            <iframe ref={tourIframeRef} src="/schedule-tour.html" style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }} title="Schedule a Tour" />
           </div>
         </div>
       )}
 
-      {/* *** STRIPE: Upgrade Modal *** */}
+      {/* Upgrade Modal — UNCHANGED */}
       {showUpgradeModal && (
         <div
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             zIndex: 99999, background: 'rgba(0,0,0,0.6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 20,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
           }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowUpgradeModal(false); }}
         >
           <div style={{
             background: '#fff', borderRadius: 20, maxWidth: 520, width: '100%',
-            boxShadow: '0 24px 80px rgba(0,0,0,0.2)', animation: 'fadeUp 0.3s ease-out',
-            overflow: 'hidden',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.2)', animation: 'fadeUp 0.3s ease-out', overflow: 'hidden',
           }}>
-            {/* Header */}
             <div style={{
               background: 'linear-gradient(135deg, #E31837, #B71230)',
               padding: '28px 32px', color: '#fff', textAlign: 'center',
             }}>
               <img src="/logo.png" alt="Realty AI" style={{ width: 56, height: 56, borderRadius: 12, marginBottom: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }} />
-              <h2 style={{ fontSize: 22, fontWeight: 700, fontFamily: theme.fontDisplay, margin: 0 }}>
-                Upgrade to Realty AI Plus
-              </h2>
-              <p style={{ fontSize: 13, opacity: 0.9, marginTop: 6 }}>
-                Unlock the full power of AI-driven real estate
-              </p>
+              <h2 style={{ fontSize: 22, fontWeight: 700, fontFamily: theme.fontDisplay, margin: 0 }}>Upgrade to Realty AI Plus</h2>
+              <p style={{ fontSize: 13, opacity: 0.9, marginTop: 6 }}>Unlock the full power of AI-driven real estate</p>
             </div>
-
-            {/* Content */}
             <div style={{ padding: '24px 32px' }}>
-              {/* Billing toggle */}
-              <div style={{
-                display: 'flex', justifyContent: 'center', gap: 0,
-                background: '#F3F4F6', borderRadius: 10, padding: 4, marginBottom: 24,
-              }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 0, background: '#F3F4F6', borderRadius: 10, padding: 4, marginBottom: 24 }}>
                 <button onClick={() => setUpgradeBillingCycle('monthly')} style={{
                   flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none',
                   background: upgradeBillingCycle === 'monthly' ? '#fff' : 'transparent',
@@ -1512,17 +1676,11 @@ export default function RealtyAI() {
                   color: upgradeBillingCycle === 'yearly' ? theme.dark : '#888',
                 }}>Annual — $25/mo</button>
               </div>
-
               {upgradeBillingCycle === 'yearly' && (
-                <div style={{
-                  textAlign: 'center', fontSize: 12, color: '#27ae60', fontWeight: 600,
-                  marginTop: -16, marginBottom: 16,
-                }}>
+                <div style={{ textAlign: 'center', fontSize: 12, color: '#27ae60', fontWeight: 600, marginTop: -16, marginBottom: 16 }}>
                   Save $59.40/year with annual billing
                 </div>
               )}
-
-              {/* Features comparison */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
                 {[
                   { feature: 'Property searches', free: '50/month', plus: 'Unlimited' },
@@ -1551,19 +1709,13 @@ export default function RealtyAI() {
                   <span style={{ width: 70, textAlign: 'center', color: theme.red, fontWeight: 700 }}>PLUS</span>
                 </div>
               </div>
-
-              {/* CTA */}
               <button
                 onClick={async () => {
                   try {
                     const res = await fetch('/.netlify/functions/create-checkout', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        email: user.email,
-                        name: user.name,
-                        plan: upgradeBillingCycle,
-                      }),
+                      body: JSON.stringify({ email: user.email, name: user.name, plan: upgradeBillingCycle }),
                     });
                     const data = await res.json();
                     if (data.url) window.open(data.url, '_blank');
@@ -1588,8 +1740,7 @@ export default function RealtyAI() {
                 onClick={() => setShowUpgradeModal(false)}
                 style={{
                   width: '100%', padding: 12, background: 'transparent', color: '#999',
-                  border: 'none', fontSize: 13, cursor: 'pointer', fontFamily: theme.font,
-                  marginTop: 8,
+                  border: 'none', fontSize: 13, cursor: 'pointer', fontFamily: theme.font, marginTop: 8,
                 }}
               >
                 Maybe later

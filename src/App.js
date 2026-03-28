@@ -317,7 +317,9 @@ function RegistrationScreen({ onLogin }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
@@ -325,8 +327,9 @@ function RegistrationScreen({ onLogin }) {
   const [sentCode, setSentCode] = useState("");
 
   const handleRegister = async () => {
-    if (!name || !email || !password) { setError("Please fill in all fields."); return; }
+    if (!firstName || !lastName || !phone || !email || !password) { setError("Please fill in all fields."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    const fullName = `${firstName} ${lastName}`;
     setLoading(true); setError("");
     if (DEMO_MODE) {
       const demoCode = generateCode();
@@ -341,7 +344,7 @@ function RegistrationScreen({ onLogin }) {
       setSentCode(vCode);
       await supabaseRequest("/users", {
         method: "POST",
-        body: JSON.stringify({ email, password, name, verification_code: vCode, verified: false }),
+        body: JSON.stringify({ email, password, name: fullName, phone, verification_code: vCode, verified: false }),
       });
       await sendVerificationEmail(email, vCode);
       setMode("verify");
@@ -350,8 +353,9 @@ function RegistrationScreen({ onLogin }) {
   };
 
   const handleVerify = async () => {
+    const fullName = `${firstName} ${lastName}`.trim();
     if (DEMO_MODE) {
-      if (code === sentCode) { onLogin({ email, name }); }
+      if (code === sentCode) { onLogin({ email, name: fullName }); }
       else { setError("Invalid code. Try again."); }
       return;
     }
@@ -360,7 +364,7 @@ function RegistrationScreen({ onLogin }) {
       const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(email)}&verification_code=eq.${code}`, { method: "GET" });
       if (data && data.length > 0) {
         await supabaseRequest(`/users?email=eq.${encodeURIComponent(email)}`, { method: "PATCH", body: JSON.stringify({ verified: true }) });
-        onLogin({ email, name: data[0].name || name });
+        onLogin({ email, name: data[0].name || fullName });
       } else { setError("Invalid verification code."); }
     } catch { setError("Verification failed."); }
     setLoading(false);
@@ -449,16 +453,33 @@ function RegistrationScreen({ onLogin }) {
         ) : (
           <>
             {mode === "register" && (
+              <>
+              <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: theme.dark, marginBottom: 6 }}>First Name</label>
+                  <input style={inputStyle} placeholder="John" value={firstName} onChange={(e) => setFirstName(e.target.value)}
+                    onFocus={(e) => e.target.style.borderColor = theme.red}
+                    onBlur={(e) => e.target.style.borderColor = theme.greyLight} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: theme.dark, marginBottom: 6 }}>Last Name</label>
+                  <input style={inputStyle} placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)}
+                    onFocus={(e) => e.target.style.borderColor = theme.red}
+                    onBlur={(e) => e.target.style.borderColor = theme.greyLight} />
+                </div>
+              </div>
               <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: theme.dark, marginBottom: 6 }}>Full Name</label>
-                <input style={inputStyle} placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)}
+                <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: theme.dark, marginBottom: 6 }}>Phone Number</label>
+                <input style={inputStyle} type="tel" placeholder="(555) 123-4567" value={phone} onChange={(e) => setPhone(e.target.value)}
                   onFocus={(e) => e.target.style.borderColor = theme.red}
                   onBlur={(e) => e.target.style.borderColor = theme.greyLight} />
               </div>
+              </>
             )}
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: theme.dark, marginBottom: 6 }}>Email</label>
               <input style={inputStyle} type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && mode === "login") handleLogin(); }}
                 onFocus={(e) => e.target.style.borderColor = theme.red}
                 onBlur={(e) => e.target.style.borderColor = theme.greyLight} />
             </div>
@@ -467,6 +488,7 @@ function RegistrationScreen({ onLogin }) {
               <div style={{ position: "relative" }}>
                 <input style={{ ...inputStyle, paddingRight: 44 }} type={showPass ? "text" : "password"} placeholder="••••••••"
                   value={password} onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { mode === "login" ? handleLogin() : handleRegister(); } }}
                   onFocus={(e) => e.target.style.borderColor = theme.red}
                   onBlur={(e) => e.target.style.borderColor = theme.greyLight} />
                 <button onClick={() => setShowPass(!showPass)} style={{

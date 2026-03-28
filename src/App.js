@@ -1831,9 +1831,9 @@ export default function RealtyAI() {
                 <img src="/logo.png" alt="Realty AI" style={{ width: 28, height: 28, borderRadius: 6 }} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>Get Approved!</span>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => { const iframe = document.querySelector('iframe[title="Mortgage Application"]'); if (iframe) { iframe.contentWindow.postMessage('RESET_AGENT', '*'); iframe.src = iframe.src; } }} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: theme.red, minHeight: 36 }}>🔄 Start Over</button>
-                <button onClick={() => setShowMortgageAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <button onClick={() => { const iframe = document.querySelector('iframe[title="Mortgage Application"]'); if (iframe) { iframe.contentWindow.postMessage('RESET_AGENT', '*'); iframe.src = iframe.src; } }} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: theme.red, minHeight: 32, whiteSpace: 'nowrap' }}>🔄 Start Over</button>
+                <button onClick={() => setShowMortgageAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 32, whiteSpace: 'nowrap' }}>✕ Close</button>
               </div>
             </div>
             <iframe src="/mortgage-agent.html" style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }} title="Mortgage Application" />
@@ -1869,9 +1869,9 @@ export default function RealtyAI() {
                 <img src="/logo.png" alt="Realty AI" style={{ width: 28, height: 28, borderRadius: 6 }} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>Submit an Offer</span>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => { if (offerIframeRef.current) { offerIframeRef.current.contentWindow.postMessage('RESET_AGENT', '*'); offerIframeRef.current.src = offerIframeRef.current.src; } }} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: theme.red, minHeight: 36 }}>🔄 Start Over</button>
-                <button onClick={() => setShowOfferAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <button onClick={() => { if (offerIframeRef.current) { offerIframeRef.current.contentWindow.postMessage('RESET_AGENT', '*'); offerIframeRef.current.src = offerIframeRef.current.src; } }} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: theme.red, minHeight: 32, whiteSpace: 'nowrap' }}>🔄 Start Over</button>
+                <button onClick={() => setShowOfferAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 32, whiteSpace: 'nowrap' }}>✕ Close</button>
               </div>
             </div>
             <iframe ref={offerIframeRef} src="/offer-agent.html" style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }} title="Submit an Offer" />
@@ -1907,9 +1907,9 @@ export default function RealtyAI() {
                 <img src="/logo.png" alt="Realty AI" style={{ width: 28, height: 28, borderRadius: 6 }} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>Sell Your Property</span>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => { if (listingIframeRef.current) { listingIframeRef.current.contentWindow.postMessage('RESET_AGENT', '*'); listingIframeRef.current.src = listingIframeRef.current.src; } }} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: theme.red, minHeight: 36 }}>🔄 Start Over</button>
-                <button onClick={() => setShowListingAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <button onClick={() => { if (listingIframeRef.current) { listingIframeRef.current.contentWindow.postMessage('RESET_AGENT', '*'); listingIframeRef.current.src = listingIframeRef.current.src; } }} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: theme.red, minHeight: 32, whiteSpace: 'nowrap' }}>🔄 Start Over</button>
+                <button onClick={() => setShowListingAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 32, whiteSpace: 'nowrap' }}>✕ Close</button>
               </div>
             </div>
             <iframe ref={listingIframeRef} src="/listing-agent.html" style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }} title="Sell Your Property" />
@@ -1958,7 +1958,7 @@ export default function RealtyAI() {
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             zIndex: 99999, background: 'rgba(0,0,0,0.6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 12px 20px', overflowY: 'auto',
           }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowAccountSettings(false); }}
         >
@@ -2105,7 +2105,7 @@ export default function RealtyAI() {
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             zIndex: 99999, background: 'rgba(0,0,0,0.6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 12px 20px', overflowY: 'auto',
           }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowSearchHistory(false); }}
         >
@@ -2192,13 +2192,14 @@ export default function RealtyAI() {
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             zIndex: 99999, background: 'rgba(0,0,0,0.6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 12px 20px', overflowY: 'auto',
           }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowUpgradeModal(false); }}
         >
           <div style={{
             background: '#fff', borderRadius: 20, maxWidth: 520, width: '100%',
             boxShadow: '0 24px 80px rgba(0,0,0,0.2)', animation: 'fadeUp 0.3s ease-out', overflow: 'hidden',
+            maxHeight: '90vh', overflowY: 'auto',
           }}>
             <div style={{
               background: 'linear-gradient(135deg, #E31837, #B71230)',

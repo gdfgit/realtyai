@@ -1802,7 +1802,7 @@ export default function RealtyAI() {
               padding: '10px 16px', background: '#fff', borderBottom: '1px solid #E5E7EB',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 28, height: 28, background: '#E31837', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 12 }}>R</div>
+                <img src="/logo.png" alt="Realty AI" style={{ width: 28, height: 28, borderRadius: 6 }} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>Get Approved!</span>
               </div>
               <button onClick={() => setShowMortgageAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
@@ -1837,7 +1837,7 @@ export default function RealtyAI() {
               padding: '10px 16px', background: '#fff', borderBottom: '1px solid #E5E7EB',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 28, height: 28, background: '#E31837', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 12 }}>R</div>
+                <img src="/logo.png" alt="Realty AI" style={{ width: 28, height: 28, borderRadius: 6 }} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>Submit an Offer</span>
               </div>
               <button onClick={() => setShowOfferAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
@@ -1872,7 +1872,7 @@ export default function RealtyAI() {
               padding: '10px 16px', background: '#fff', borderBottom: '1px solid #E5E7EB',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 28, height: 28, background: '#E31837', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 12 }}>R</div>
+                <img src="/logo.png" alt="Realty AI" style={{ width: 28, height: 28, borderRadius: 6 }} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>Sell Your Property</span>
               </div>
               <button onClick={() => setShowListingAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
@@ -1907,7 +1907,7 @@ export default function RealtyAI() {
               padding: '10px 16px', background: '#fff', borderBottom: '1px solid #E5E7EB',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 28, height: 28, background: '#E31837', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 12 }}>R</div>
+                <img src="/logo.png" alt="Realty AI" style={{ width: 28, height: 28, borderRadius: 6 }} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A' }}>Schedule a Tour</span>
               </div>
               <button onClick={() => setShowTourAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#555', minHeight: 36 }}>✕ Close</button>

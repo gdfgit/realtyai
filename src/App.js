@@ -199,9 +199,11 @@ async function tavilySearch(query) {
   try {
     const res = await fetch("https://api.tavily.com/search", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${TAVILY_API_KEY}`,
+      },
       body: JSON.stringify({
-        api_key: TAVILY_API_KEY,
         query,
         search_depth: "basic",
         include_images: true,

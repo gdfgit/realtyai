@@ -1831,7 +1831,10 @@ export default function RealtyAI() {
                 <img src="/logo.png" alt="Realty AI" style={{ width: 28, height: 28, borderRadius: 6 }} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>Get Approved!</span>
               </div>
-              <button onClick={() => setShowMortgageAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => { const iframe = document.querySelector('iframe[title="Mortgage Application"]'); if (iframe) { iframe.contentWindow.postMessage('RESET_AGENT', '*'); iframe.src = iframe.src; } }} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: theme.red, minHeight: 36 }}>🔄 Start Over</button>
+                <button onClick={() => setShowMortgageAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
+              </div>
             </div>
             <iframe src="/mortgage-agent.html" style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }} title="Mortgage Application" />
           </div>
@@ -1866,7 +1869,10 @@ export default function RealtyAI() {
                 <img src="/logo.png" alt="Realty AI" style={{ width: 28, height: 28, borderRadius: 6 }} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>Submit an Offer</span>
               </div>
-              <button onClick={() => setShowOfferAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => { if (offerIframeRef.current) { offerIframeRef.current.contentWindow.postMessage('RESET_AGENT', '*'); offerIframeRef.current.src = offerIframeRef.current.src; } }} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: theme.red, minHeight: 36 }}>🔄 Start Over</button>
+                <button onClick={() => setShowOfferAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
+              </div>
             </div>
             <iframe ref={offerIframeRef} src="/offer-agent.html" style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }} title="Submit an Offer" />
           </div>
@@ -1901,7 +1907,10 @@ export default function RealtyAI() {
                 <img src="/logo.png" alt="Realty AI" style={{ width: 28, height: 28, borderRadius: 6 }} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#1A1A1A', fontFamily: theme.font }}>Sell Your Property</span>
               </div>
-              <button onClick={() => setShowListingAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => { if (listingIframeRef.current) { listingIframeRef.current.contentWindow.postMessage('RESET_AGENT', '*'); listingIframeRef.current.src = listingIframeRef.current.src; } }} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: theme.red, minHeight: 36 }}>🔄 Start Over</button>
+                <button onClick={() => setShowListingAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: theme.font, color: '#555', minHeight: 36 }}>✕ Close</button>
+              </div>
             </div>
             <iframe ref={listingIframeRef} src="/listing-agent.html" style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }} title="Sell Your Property" />
           </div>

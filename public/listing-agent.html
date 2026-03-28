@@ -786,12 +786,11 @@ function render() {
         }).join('')}
       </div>
       <div class="lo">
-        <div class="t">Your Listing Agent</div>
+        <div style="margin-bottom:4px"><a href="https://nationrealtor.com" target="_blank" style="color:var(--red);font-weight:600;text-decoration:none;font-size:11px">nationrealtor.com</a> <span style="color:var(--text-light)">Powered by Axen Realty</span></div>
         <div><strong>${AGENT_INFO.agentName}</strong></div>
-        <div>${AGENT_INFO.broker} | Lic. ${AGENT_INFO.license}</div>
+        <div>Realtor Lic. ${AGENT_INFO.license}</div>
+        <div>T. ${AGENT_INFO.phone}</div>
         <div>${AGENT_INFO.email}</div>
-        <div>${AGENT_INFO.phone}</div>
-        <div style="margin-top:6px">nationrealtor.com<br>Powered by Axen Realty</div>
       </div>
     </div>
 

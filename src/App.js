@@ -862,25 +862,18 @@ export default function RealtyAI() {
   // *** SIDEBAR: New state ***
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
-  // *** PERSISTED: Load from localStorage ***
-  const [profilePhoto, setProfilePhoto] = useState(() => {
-    try { return localStorage.getItem('realtyai_profilePhoto') || null; } catch { return null; }
-  });
+  // *** All user data loaded from Supabase on login — defaults are clean ***
+  const [profilePhoto, setProfilePhoto] = useState(null);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [showSearchHistory, setShowSearchHistory] = useState(false);
-  const [searchHistory, setSearchHistory] = useState(() => {
-    try {
-      const saved = localStorage.getItem('realtyai_searchHistory');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  const [searchHistory, setSearchHistory] = useState([]);
   const [editName, setEditName] = useState("");
-  const [editPhone, setEditPhone] = useState(() => {
-    try { return localStorage.getItem('realtyai_phone') || ""; } catch { return ""; }
-  });
-  const [editLocation, setEditLocation] = useState(() => {
-    try { return localStorage.getItem('realtyai_location') || ""; } catch { return ""; }
-  });
+  const [editPhone, setEditPhone] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  // *** Counters — all from Supabase ***
+  const [listingCount, setListingCount] = useState(0);
+  const [offerCount, setOfferCount] = useState(0);
+  const [approvalCount, setApprovalCount] = useState(0);
 
   const chatRef = useRef(null);
   const fileRef = useRef(null);
@@ -908,19 +901,31 @@ export default function RealtyAI() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch plan on load
+  // Fetch plan + all user data on load
   useEffect(() => {
     if (!user) return;
     (async () => {
       try {
-        const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(user.email)}&select=plan,search_count,search_reset_date,profile_photo_url`, { method: "GET" });
+        const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(user.email)}&select=plan,search_count,search_reset_date,profile_photo_url,listing_count,offer_count,approval_count,search_history`, { method: "GET" });
         if (data && data.length > 0) {
           setUserPlan(data[0].plan || "free");
-          // *** Load profile photo from Supabase ***
+          // Load profile photo
           if (data[0].profile_photo_url) {
             setProfilePhoto(data[0].profile_photo_url);
-            try { localStorage.setItem('realtyai_profilePhoto', data[0].profile_photo_url); } catch {}
+          } else {
+            setProfilePhoto(null);
           }
+          // Load counts from Supabase
+          setListingCount(data[0].listing_count || 0);
+          setOfferCount(data[0].offer_count || 0);
+          setApprovalCount(data[0].approval_count || 0);
+          // Load search history from Supabase
+          if (data[0].search_history) {
+            try { setSearchHistory(JSON.parse(data[0].search_history)); } catch { setSearchHistory([]); }
+          } else {
+            setSearchHistory([]);
+          }
+          // Monthly search count reset
           const resetDate = new Date(data[0].search_reset_date || Date.now());
           const now = new Date();
           if (now.getMonth() !== resetDate.getMonth() || now.getFullYear() !== resetDate.getFullYear()) {
@@ -1072,12 +1077,15 @@ export default function RealtyAI() {
       ]);
       const response = buildPropertyResponse(text, results, mortgageRate, isAddress);
 
-      // *** Track search in history ***
+      // *** Track search in history — save to Supabase ***
       const queryType = isCommercial ? "Commercial" : isNewConst ? "New Construction" : "Residential";
       const newEntry = { query: text, type: queryType, time: new Date().toISOString(), resultCount: (results.results || []).length };
       setSearchHistory((prev) => {
-        const updated = [newEntry, ...prev].slice(0, 100); // keep last 100
-        try { localStorage.setItem('realtyai_searchHistory', JSON.stringify(updated)); } catch {}
+        const updated = [newEntry, ...prev].slice(0, 100);
+        // Save to Supabase
+        supabaseRequest(`/users?email=eq.${encodeURIComponent(user.email)}`, {
+          method: "PATCH", body: JSON.stringify({ search_history: JSON.stringify(updated) }),
+        }).catch(() => {});
         return updated;
       });
 
@@ -1150,7 +1158,7 @@ export default function RealtyAI() {
     setAttachments((prev) => [...prev, ...files.map((f) => ({ name: f.name, size: f.size, type: f.type }))]);
   };
 
-  // *** SIDEBAR: Handle profile photo upload — saves to localStorage + Supabase ***
+  // *** SIDEBAR: Handle profile photo upload — saves to Supabase ***
   const handleProfilePhoto = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -1169,7 +1177,7 @@ export default function RealtyAI() {
           canvas.getContext('2d').drawImage(img, 0, 0, w, h);
           const photoData = canvas.toDataURL('image/jpeg', 0.8);
           setProfilePhoto(photoData);
-          try { localStorage.setItem('realtyai_profilePhoto', photoData); } catch {}
+          // saved to Supabase above
           // Save to Supabase
           if (user?.email) {
             supabaseRequest(`/users?email=eq.${encodeURIComponent(user.email)}`, {
@@ -1350,14 +1358,22 @@ export default function RealtyAI() {
         setUser(userData);
         localStorage.setItem('realtyai_user', JSON.stringify(userData));
         try {
-          const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(userData.email)}&select=plan,search_count,search_reset_date,profile_photo_url`, { method: "GET" });
+          const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(userData.email)}&select=plan,search_count,search_reset_date,profile_photo_url,listing_count,offer_count,approval_count,search_history`, { method: "GET" });
           if (data && data.length > 0) {
             setUserPlan(data[0].plan || "free");
-            // *** Load profile photo from Supabase on login ***
-            if (data[0].profile_photo_url) {
-              setProfilePhoto(data[0].profile_photo_url);
-              try { localStorage.setItem('realtyai_profilePhoto', data[0].profile_photo_url); } catch {}
+            // Load profile photo
+            setProfilePhoto(data[0].profile_photo_url || null);
+            // Load all counts
+            setListingCount(data[0].listing_count || 0);
+            setOfferCount(data[0].offer_count || 0);
+            setApprovalCount(data[0].approval_count || 0);
+            // Load search history
+            if (data[0].search_history) {
+              try { setSearchHistory(JSON.parse(data[0].search_history)); } catch { setSearchHistory([]); }
+            } else {
+              setSearchHistory([]);
             }
+            // Monthly search count reset
             const resetDate = new Date(data[0].search_reset_date || Date.now());
             const now = new Date();
             if (now.getMonth() !== resetDate.getMonth() || now.getFullYear() !== resetDate.getFullYear()) {
@@ -1446,8 +1462,9 @@ export default function RealtyAI() {
             <div style={{ display: "flex", gap: 6 }}>
               {[
                 { label: "Searches", value: searchCount },
-                { label: "Listings", value: 3 },
-                { label: "Offers", value: 1 },
+                { label: "Approvals", value: approvalCount },
+                { label: "Listings", value: listingCount },
+                { label: "Offers", value: offerCount },
               ].map((stat, i) => (
                 <div key={i} onClick={() => { setSidebarOpen(false); setShowSearchHistory(true); }} style={{
                   flex: 1, background: theme.sidebarCardBg, border: `1px solid ${theme.sidebarCardBorder}`,
@@ -1579,7 +1596,7 @@ export default function RealtyAI() {
                     {[
                       { icon: Icons.subscription, label: "Manage subscription", action: () => setShowUpgradeModal(true) },
                       { icon: Icons.searchHistory, label: "Search history", action: () => setShowSearchHistory(true) },
-                      { icon: Icons.settings, label: "Account settings", action: () => { setEditName(user.name || ""); setEditPhone(localStorage.getItem('realtyai_phone') || ""); setEditLocation(localStorage.getItem('realtyai_location') || ""); setShowAccountSettings(true); } },
+                      { icon: Icons.settings, label: "Account settings", action: () => { setEditName(user.name || ""); setShowAccountSettings(true); } },
                     ].map((item, i) => (
                       <div key={i} onClick={() => { setShowAccountDropdown(false); item.action && item.action(); }} style={{
                         display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
@@ -1595,6 +1612,15 @@ export default function RealtyAI() {
                   <div style={{ borderTop: "1px solid #f0f0f0", padding: 4 }}>
                     <div onClick={() => {
                       localStorage.removeItem('realtyai_user');
+                      setProfilePhoto(null);
+                      setSearchHistory([]);
+                      setSearchCount(0);
+                      setListingCount(0);
+                      setOfferCount(0);
+                      setApprovalCount(0);
+                      setUserPlan("free");
+                      setEditPhone("");
+                      setEditLocation("");
                       setUser(null); setMessages([]); setShowAccountDropdown(false);
                     }} style={{
                       display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
@@ -2039,8 +2065,8 @@ export default function RealtyAI() {
                   setUser(updated);
                   localStorage.setItem('realtyai_user', JSON.stringify(updated));
                   // Save phone & location
-                  localStorage.setItem('realtyai_phone', editPhone);
-                  localStorage.setItem('realtyai_location', editLocation);
+                  // phone saved in state
+                  // location saved in state
                   // Update name in Supabase
                   if (editName && editName !== user.name) {
                     supabaseRequest(`/users?email=eq.${encodeURIComponent(user.email)}`, {
@@ -2094,9 +2120,10 @@ export default function RealtyAI() {
             {/* Stats summary */}
             <div style={{ padding: '16px 24px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 12 }}>
               {[
-                { label: 'Total Searches', value: searchCount, color: theme.red },
-                { label: 'Listings', value: 3, color: '#8E44AD' },
-                { label: 'Offers', value: 1, color: '#27AE60' },
+                { label: 'Searches', value: searchCount, color: theme.red },
+                { label: 'Approvals', value: approvalCount, color: '#3498DB' },
+                { label: 'Listings', value: listingCount, color: '#8E44AD' },
+                { label: 'Offers', value: offerCount, color: '#27AE60' },
               ].map((s, i) => (
                 <div key={i} style={{
                   flex: 1, background: '#f9f9f9', borderRadius: 10, padding: '10px 8px', textAlign: 'center',

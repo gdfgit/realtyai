@@ -196,18 +196,32 @@ async function tavilySearch(query) {
   if (DEMO_MODE) {
     return generateDemoResults(query);
   }
-  const res = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      api_key: TAVILY_API_KEY,
-      query,
-      search_depth: "advanced",
-      include_images: true,
-      max_results: 8,
-    }),
-  });
-  return res.json();
+  try {
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: TAVILY_API_KEY,
+        query,
+        search_depth: "basic",
+        include_images: true,
+        max_results: 8,
+      }),
+    });
+    if (!res.ok) {
+      console.error("Tavily API error:", res.status, res.statusText);
+      return { results: [], images: [], error: `API error: ${res.status}` };
+    }
+    const data = await res.json();
+    if (data.error) {
+      console.error("Tavily error response:", data.error);
+      return { results: [], images: [], error: data.error };
+    }
+    return data;
+  } catch (e) {
+    console.error("Tavily fetch failed:", e);
+    return { results: [], images: [], error: e.message };
+  }
 }
 
 // ─── FETCH DAILY MORTGAGE RATE ────────────────────────────────────────
@@ -747,6 +761,16 @@ function buildPropertyResponse(query, searchResults, mortgageRate, isAddressSear
     output += `\n`;
   }
 
+  if (results.length === 0) {
+    output += `⚠️ **No listings found for this search.**\n\n`;
+    output += `This could be due to:\n`;
+    output += `• No matching properties in this area/price range\n`;
+    output += `• Temporary search service issue\n\n`;
+    output += `**Try refining your search** — add a city, state, price range, or bedroom count.\n`;
+    output += `*Example: "3 bed homes in Las Vegas under $500K"*\n`;
+    return output;
+  }
+
   results.forEach((r) => {
     output += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
     output += `**${r.title}**\n\n`;
@@ -820,13 +844,13 @@ function buildConfidentTrigger(price, sqft) {
 function buildAreaLinks(address, encodedAddr) {
   let o = `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   o += `📍 **Explore the Area** — ${address}\n\n`;
-  o += `[🍽️ Restaurants](https://www.google.com/maps/search/restaurants+near+${encodedAddr})\n`;
-  o += `[🏫 Schools](https://www.google.com/maps/search/schools+near+${encodedAddr})\n`;
-  o += `[🏥 Hospitals](https://www.google.com/maps/search/hospitals+near+${encodedAddr})\n`;
-  o += `[💪 Gyms & Fitness](https://www.google.com/maps/search/gyms+near+${encodedAddr})\n`;
-  o += `[🌳 Parks](https://www.google.com/maps/search/parks+near+${encodedAddr})\n`;
-  o += `[🏛️ County Assessor](https://www.google.com/maps/search/county+assessor+near+${encodedAddr})\n`;
-  o += `[🗺️ Map](https://www.google.com/maps/search/${encodedAddr})\n`;
+  o += `[🍽️ Restaurants](#amenity-restaurant-${encodedAddr})\n`;
+  o += `[🏫 Schools](#amenity-school-${encodedAddr})\n`;
+  o += `[🏥 Hospitals](#amenity-hospital-${encodedAddr})\n`;
+  o += `[💪 Gyms & Fitness](#amenity-gym-${encodedAddr})\n`;
+  o += `[🌳 Parks](#amenity-park-${encodedAddr})\n`;
+  o += `[🏛️ County Assessor](#amenity-assessor-${encodedAddr})\n`;
+  o += `[🗺️ Map](#amenity-map-${encodedAddr})\n`;
   o += `[📅 Schedule a Tour](#schedule-tour)\n`;
   return o;
 }
@@ -889,6 +913,13 @@ export default function RealtyAI() {
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [showSearchHistory, setShowSearchHistory] = useState(false);
   const [searchHistory, setSearchHistory] = useState([]);
+  // *** AMENITY PANELS ***
+  const [showAmenityPanel, setShowAmenityPanel] = useState(false);
+  const [amenityType, setAmenityType] = useState(""); // restaurant, school, hospital, gym, park, map, assessor
+  const [amenityAddress, setAmenityAddress] = useState("");
+  const [amenityResults, setAmenityResults] = useState([]);
+  const [amenityLoading, setAmenityLoading] = useState(false);
+  const [amenityCenter, setAmenityCenter] = useState(null);
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editLocation, setEditLocation] = useState("");
@@ -905,6 +936,8 @@ export default function RealtyAI() {
   const tourIframeRef = useRef(null);
   // *** SIDEBAR: Dropdown ref for click-outside ***
   const dropdownRef = useRef(null);
+  // *** AMENITY PANELS: Request ref for click handler closure ***
+  const amenityRequestRef = useRef(null);
 
   useEffect(() => {
     if (chatRef.current) {
@@ -983,24 +1016,48 @@ export default function RealtyAI() {
   useEffect(() => {
     const handleClick = (e) => {
       const link = e.target.closest('a');
-      if (link && link.getAttribute('href') === '#mortgage-agent') {
+      if (!link) return;
+      const href = link.getAttribute('href');
+      if (!href) return;
+
+      if (href === '#mortgage-agent') {
         e.preventDefault();
         if (userPlan === 'free') { setShowUpgradeModal(true); return; }
         setShowMortgageAgent(true);
       }
-      if (link && link.getAttribute('href') === '#offer-agent') {
+      if (href === '#offer-agent') {
         e.preventDefault();
         if (userPlan === 'free') { setShowUpgradeModal(true); return; }
         setShowOfferAgent(true);
       }
-      if (link && link.getAttribute('href') === '#listing-agent') {
+      if (href === '#listing-agent') {
         e.preventDefault();
         if (userPlan === 'free') { setShowUpgradeModal(true); return; }
         setShowListingAgent(true);
       }
-      if (link && link.getAttribute('href') === '#schedule-tour') {
+      if (href === '#schedule-tour') {
         e.preventDefault();
         setShowTourAgent(true);
+      }
+      // *** AMENITY PANELS: Intercept amenity hash links ***
+      if (href.startsWith('#amenity-')) {
+        e.preventDefault();
+        const parts = href.substring(9); // remove '#amenity-'
+        const dashIdx = parts.indexOf('-');
+        if (dashIdx > 0) {
+          const type = parts.substring(0, dashIdx);
+          const encodedAddress = parts.substring(dashIdx + 1);
+          const address = decodeURIComponent(encodedAddress);
+          // Set state directly (avoids stale closure)
+          setAmenityType(type);
+          setAmenityAddress(address);
+          setShowAmenityPanel(true);
+          setAmenityResults([]);
+          setAmenityCenter(null);
+          setAmenityLoading(true);
+          // Store in ref so the fetch effect can pick it up
+          amenityRequestRef.current = { type, address };
+        }
       }
     };
     document.addEventListener('click', handleClick);
@@ -1097,6 +1154,13 @@ export default function RealtyAI() {
         tavilySearch(searchQuery),
         fetchMortgageRate(),
       ]);
+
+      // Log Tavily response for debugging
+      if (results.error) {
+        console.error("Tavily returned error:", results.error);
+      }
+      console.log("Tavily results count:", (results.results || []).length);
+
       const response = buildPropertyResponse(text, results, mortgageRate, isAddress);
 
       // *** Track search in history — save to Supabase ***
@@ -1233,6 +1297,51 @@ export default function RealtyAI() {
 
   // *** SIDEBAR: User initials helper ***
   const userInitials = user ? (user.name || user.email || "U").split(" ").map(w => w[0]).join("").toUpperCase().substring(0, 2) : "U";
+
+  // *** AMENITY PANELS: Config & fetch ***
+  const amenityConfig = {
+    restaurant: { label: "Restaurants", emoji: "🍽️", type: "restaurant", color: "#E31837" },
+    school: { label: "Schools", emoji: "🏫", type: "school", color: "#3498DB" },
+    hospital: { label: "Hospitals", emoji: "🏥", type: "hospital", color: "#27AE60" },
+    gym: { label: "Gyms & Fitness", emoji: "💪", type: "gym", color: "#8E44AD" },
+    park: { label: "Parks", emoji: "🌳", type: "park", color: "#2ECC71" },
+    map: { label: "Map", emoji: "🗺️", type: "map", color: "#E67E22" },
+    assessor: { label: "County Assessor", emoji: "🏛️", type: "assessor", color: "#34495E" },
+  };
+
+  const fetchNearbyPlaces = async (address, placeType) => {
+    setAmenityLoading(true);
+    setAmenityResults([]);
+    setAmenityCenter(null);
+    try {
+      const res = await fetch('/.netlify/functions/nearby-places', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, type: placeType }),
+      });
+      const data = await res.json();
+      if (data.results) {
+        setAmenityResults(data.results);
+        setAmenityCenter(data.center);
+      }
+    } catch (err) {
+      console.error('Amenity fetch error:', err);
+    }
+    setAmenityLoading(false);
+  };
+
+  // Trigger fetch when amenity panel opens via click handler
+  useEffect(() => {
+    if (!showAmenityPanel || !amenityRequestRef.current) return;
+    const { type, address } = amenityRequestRef.current;
+    amenityRequestRef.current = null; // consume
+    if (type !== 'assessor') {
+      const googleType = amenityConfig[type]?.type || type;
+      fetchNearbyPlaces(address, type === 'map' ? 'point_of_interest' : googleType);
+    } else {
+      setAmenityLoading(false);
+    }
+  }, [showAmenityPanel]);
 
   // *** VOICE MODE: Core functions ***
   const stripMarkdown = (text) => {
@@ -1557,6 +1666,28 @@ export default function RealtyAI() {
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative" }} ref={dropdownRef}>
+              {/* New Search button */}
+              <button onClick={() => {
+                setMessages([{
+                  role: "assistant", type: "rich",
+                  content: `👋 **Welcome to Realty AI, ${user.name || "there"}!**\n\nI'm your AI-powered real estate assistant. I can help you:\n\n🏠 **Residential** — Search homes on Zillow, Realtor.com, Redfin & Homes.com\n🏢 **Commercial** — Find spaces on LoopNet, Crexi & BizBuySell\n🏗️ **New Construction** — Browse brand new homes\n\nJust tell me what you're looking for! For example:\n• *"3 bedroom homes in San Diego under $800K"*\n• *"Restaurant space for lease in Miami"*\n• *"New construction homes in Austin, TX"*`,
+                }]);
+                setInput("");
+                setLoading(false);
+              }} style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "6px 14px", background: "transparent",
+                border: `1.5px solid ${theme.greyLight}`, borderRadius: 8,
+                fontSize: 12, fontWeight: 600, cursor: "pointer",
+                fontFamily: theme.font, color: theme.grey,
+                transition: "all 0.2s", whiteSpace: "nowrap",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = theme.red; e.currentTarget.style.color = theme.red; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = theme.greyLight; e.currentTarget.style.color = theme.grey; }}
+              >
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M12 5v14m-7-7h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                New Search
+              </button>
               {/* Plan badge */}
               {userPlan === "plus" && (
                 <div style={{
@@ -2204,6 +2335,273 @@ export default function RealtyAI() {
                 ))
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* *** AMENITY PANEL OVERLAY *** */}
+      {showAmenityPanel && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 9999, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAmenityPanel(false); }}
+        >
+          <div style={{
+            width: window.innerWidth <= 768 ? '100%' : '95%',
+            maxWidth: window.innerWidth <= 768 ? '100%' : 900,
+            height: window.innerWidth <= 768 ? '100%' : '88vh',
+            background: '#fff',
+            borderRadius: window.innerWidth <= 768 ? 0 : '16px 16px 0 0',
+            boxShadow: '0 -4px 40px rgba(0,0,0,0.25)',
+            position: 'relative', overflow: 'hidden',
+            animation: 'slideUp 0.3s ease-out',
+            display: 'flex', flexDirection: 'column',
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 20px', background: '#fff', borderBottom: '1px solid #E5E7EB',
+              flexShrink: 0,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <img src="/logo.png" alt="Realty AI" style={{ width: 28, height: 28, borderRadius: 6 }} />
+                <span style={{ fontSize: 15, fontWeight: 700, color: amenityConfig[amenityType]?.color || theme.dark, fontFamily: theme.font }}>
+                  {amenityConfig[amenityType]?.emoji} {amenityConfig[amenityType]?.label || 'Amenities'}
+                </span>
+                <span style={{ fontSize: 12, color: theme.grey, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  near {amenityAddress}
+                </span>
+              </div>
+              <button onClick={() => setShowAmenityPanel(false)} style={{
+                background: 'none', border: '1px solid #E5E7EB', borderRadius: 8,
+                padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                fontFamily: theme.font, color: '#555', minHeight: 32,
+              }}>✕ Close</button>
+            </div>
+
+            {/* Panel Content */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: 0 }}>
+              {/* ─── MAP PANEL ─── */}
+              {amenityType === 'map' && (
+                <div style={{ width: '100%', height: '100%' }}>
+                  <iframe
+                    src={`https://www.google.com/maps/embed/v1/place?key=${process.env.REACT_APP_GOOGLE_MAPS_KEY || ''}&q=${encodeURIComponent(amenityAddress)}&zoom=15&maptype=roadmap`}
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                    title="Property Map"
+                    allowFullScreen
+                    loading="lazy"
+                  />
+                </div>
+              )}
+
+              {/* ─── COUNTY ASSESSOR PANEL ─── */}
+              {amenityType === 'assessor' && (
+                <div style={{ padding: 24 }}>
+                  <div style={{
+                    background: '#F8F9FA', borderRadius: 16, padding: 28, textAlign: 'center',
+                    border: '1px solid #E5E7EB', marginBottom: 20,
+                  }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>🏛️</div>
+                    <h3 style={{ fontSize: 20, fontWeight: 700, color: theme.dark, fontFamily: theme.fontDisplay, marginBottom: 8 }}>
+                      County Assessor Records
+                    </h3>
+                    <p style={{ fontSize: 14, color: theme.grey, marginBottom: 20, lineHeight: 1.6 }}>
+                      Look up property tax records, assessed values, ownership history, and parcel information for:
+                    </p>
+                    <div style={{
+                      background: '#fff', borderRadius: 10, padding: '12px 18px',
+                      border: '1px solid #E5E7EB', fontSize: 15, fontWeight: 600,
+                      color: theme.dark, marginBottom: 24,
+                    }}>
+                      {amenityAddress}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 380, margin: '0 auto' }}>
+                      <a
+                        href={`https://sandgate.co.clark.nv.us/assrrealprop/default.aspx`}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          padding: '14px 20px', background: theme.red, color: '#fff',
+                          borderRadius: 12, fontSize: 14, fontWeight: 600, textDecoration: 'none',
+                          boxShadow: '0 3px 12px rgba(227,24,55,0.25)', transition: 'all 0.2s',
+                        }}
+                      >
+                        🏛️ Clark County Assessor (NV)
+                      </a>
+                      <a
+                        href={`https://www.google.com/search?q=county+assessor+${encodeURIComponent(amenityAddress)}`}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          padding: '14px 20px', background: '#fff', color: theme.dark,
+                          borderRadius: 12, fontSize: 14, fontWeight: 600, textDecoration: 'none',
+                          border: '2px solid #E5E7EB', transition: 'all 0.2s',
+                        }}
+                      >
+                        🔍 Search County Assessor for this Address
+                      </a>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: 11, color: '#aaa', textAlign: 'center' }}>
+                    County assessor records are public information. Data varies by county jurisdiction.
+                  </p>
+                </div>
+              )}
+
+              {/* ─── PLACES RESULTS (Restaurants, Schools, Hospitals, Gyms, Parks) ─── */}
+              {amenityType !== 'map' && amenityType !== 'assessor' && (
+                <div style={{ padding: 16 }}>
+                  {/* Mini map at top */}
+                  {amenityCenter && (
+                    <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+                      <iframe
+                        src={`https://www.google.com/maps/embed/v1/search?key=${process.env.REACT_APP_GOOGLE_MAPS_KEY || ''}&q=${encodeURIComponent(amenityConfig[amenityType]?.label || amenityType)}+near+${encodeURIComponent(amenityAddress)}&zoom=13`}
+                        style={{ width: '100%', height: 200, border: 'none' }}
+                        title="Amenity Map"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+
+                  {/* Loading state */}
+                  {amenityLoading && (
+                    <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                      <div style={{ marginBottom: 12 }}>{Icons.spinner}</div>
+                      <p style={{ fontSize: 14, color: theme.grey }}>
+                        Searching for {amenityConfig[amenityType]?.label?.toLowerCase() || 'places'} near this property...
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Results */}
+                  {!amenityLoading && amenityResults.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ fontSize: 13, color: theme.grey, fontWeight: 600, padding: '0 4px 8px', borderBottom: '1px solid #f0f0f0' }}>
+                        {amenityResults.length} {amenityConfig[amenityType]?.label?.toLowerCase() || 'places'} found nearby
+                      </div>
+                      {amenityResults.map((place, i) => (
+                        <div key={i} style={{
+                          display: 'flex', gap: 12, padding: '14px 8px',
+                          borderBottom: '1px solid #f5f5f5', alignItems: 'flex-start',
+                          animation: 'fadeUp 0.3s ease-out',
+                          animationDelay: `${i * 0.04}s`, animationFillMode: 'backwards',
+                        }}>
+                          {/* Photo or Emoji Placeholder */}
+                          {place.photoUrl ? (
+                            <img src={place.photoUrl} alt={place.name} style={{
+                              width: 64, height: 64, borderRadius: 10, objectFit: 'cover', flexShrink: 0,
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                            }} />
+                          ) : (
+                            <div style={{
+                              width: 64, height: 64, borderRadius: 10, flexShrink: 0,
+                              background: `${amenityConfig[amenityType]?.color || theme.red}12`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 26,
+                            }}>
+                              {amenityConfig[amenityType]?.emoji || '📍'}
+                            </div>
+                          )}
+
+                          {/* Details */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                              <h4 style={{ fontSize: 14.5, fontWeight: 600, color: theme.dark, margin: 0, lineHeight: 1.3 }}>
+                                {place.name}
+                              </h4>
+                              <span style={{
+                                fontSize: 12, color: amenityConfig[amenityType]?.color || theme.red,
+                                fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0,
+                              }}>
+                                {place.distance} mi
+                              </span>
+                            </div>
+                            <p style={{ fontSize: 12.5, color: theme.grey, margin: '3px 0 6px', lineHeight: 1.3 }}>
+                              {place.address}
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                              {/* Rating */}
+                              {place.rating && (
+                                <span style={{ fontSize: 12, color: '#F39C12', fontWeight: 600 }}>
+                                  ★ {place.rating}
+                                  <span style={{ color: '#bbb', fontWeight: 400, marginLeft: 3 }}>
+                                    ({place.totalRatings})
+                                  </span>
+                                </span>
+                              )}
+                              {/* Price Level */}
+                              {place.priceLevel !== null && place.priceLevel > 0 && (
+                                <span style={{ fontSize: 12, color: '#27ae60', fontWeight: 600 }}>
+                                  {'$'.repeat(place.priceLevel)}
+                                </span>
+                              )}
+                              {/* Open/Closed */}
+                              {place.isOpen !== null && (
+                                <span style={{
+                                  fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4,
+                                  background: place.isOpen ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)',
+                                  color: place.isOpen ? '#27ae60' : '#e74c3c',
+                                }}>
+                                  {place.isOpen ? 'Open' : 'Closed'}
+                                </span>
+                              )}
+                              {/* Directions Link */}
+                              <a
+                                href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place.name + ' ' + place.address)}`}
+                                target="_blank" rel="noopener noreferrer"
+                                style={{
+                                  fontSize: 12, color: theme.red, fontWeight: 600,
+                                  textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3,
+                                }}
+                              >
+                                📍 Directions
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* No results */}
+                  {!amenityLoading && amenityResults.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', color: theme.grey }}>
+                      <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>{amenityConfig[amenityType]?.emoji || '📍'}</div>
+                      <p style={{ fontSize: 14, marginBottom: 8 }}>No {amenityConfig[amenityType]?.label?.toLowerCase() || 'places'} found nearby.</p>
+                      <a
+                        href={`https://www.google.com/maps/search/${encodeURIComponent(amenityConfig[amenityType]?.label || amenityType)}+near+${encodeURIComponent(amenityAddress)}`}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: 13, color: theme.red, fontWeight: 600, textDecoration: 'underline' }}
+                      >
+                        Try searching on Google Maps →
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer with Google Maps fallback */}
+            {amenityType !== 'map' && amenityType !== 'assessor' && (
+              <div style={{
+                padding: '10px 20px', borderTop: '1px solid #f0f0f0',
+                display: 'flex', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <a
+                  href={`https://www.google.com/maps/search/${encodeURIComponent(amenityConfig[amenityType]?.label || amenityType)}+near+${encodeURIComponent(amenityAddress)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{
+                    fontSize: 12, color: theme.grey, textDecoration: 'none',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                  }}
+                >
+                  🗺️ View all on Google Maps
+                </a>
+              </div>
+            )}
           </div>
         </div>
       )}

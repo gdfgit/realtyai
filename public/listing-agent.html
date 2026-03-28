@@ -166,6 +166,12 @@ window.addEventListener('message', (e) => {
     Object.assign(SHARED_CTX, e.data.payload);
     init();
   }
+  if (e.data === 'RESET_AGENT') {
+    localStorage.removeItem(STORAGE_KEY);
+    S.secIdx = 0; S.fldIdx = 0; S.msgs = []; S.data = {}; S.files = {};
+    S.typing = false; S.submitting = false; S.submitted = false; S.resumed = false;
+    init();
+  }
 });
 
 const SECTIONS = [

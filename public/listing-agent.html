@@ -167,9 +167,8 @@ window.addEventListener('message', (e) => {
     init();
   }
   if (e.data === 'RESET_AGENT') {
-    localStorage.removeItem(STORAGE_KEY);
     S.secIdx = 0; S.fldIdx = 0; S.msgs = []; S.data = {}; S.files = {};
-    S.typing = false; S.submitting = false; S.submitted = false; S.resumed = false;
+    S.typing = false; S.submitting = false; S.submitted = false;
     init();
   }
 });
@@ -275,49 +274,11 @@ const SECTIONS = [
   { id:"review", title:"Review & Submit", icon:"✅", fields:[], review:true },
 ];
 
-const STORAGE_KEY = 'realtyai_listing_state';
-
-function loadState() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return {
-        secIdx: parsed.secIdx || 0,
-        fldIdx: parsed.fldIdx || 0,
-        msgs: parsed.msgs || [],
-        data: parsed.data || {},
-        files: parsed.files || {},
-        typing: false,
-        submitting: false,
-        submitted: parsed.submitted || false,
-        listening: false,
-        showMobileSB: false,
-        resumed: false,
-      };
-    }
-  } catch (e) { console.error('State load error:', e); }
-  return null;
-}
-
-function saveState() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      secIdx: S.secIdx,
-      fldIdx: S.fldIdx,
-      msgs: S.msgs,
-      data: S.data,
-      files: S.files,
-      submitted: S.submitted,
-    }));
-  } catch (e) { console.error('State save error:', e); }
-}
-
-const savedState = loadState();
-const S = savedState || {
+// *** NO localStorage — fresh start every time, like Mortgage/Offer agents ***
+const S = {
   secIdx: 0, fldIdx: 0, msgs: [], data: {}, files: {},
   typing: false, submitting: false, submitted: false,
-  listening: false, showMobileSB: false, resumed: false,
+  listening: false, showMobileSB: false,
 };
 
 const $ = id => document.getElementById(id);
@@ -343,7 +304,7 @@ function getPercent() {
 
 function addUser(text, fieldKey) {
   S.msgs.push({ id: uid(), type:'user', text, fieldKey: fieldKey || null });
-  saveState();
+
   render();
   scrollChat();
 }
@@ -356,7 +317,7 @@ function addAgent(text, delay=400) {
     setTimeout(() => {
       S.typing = false;
       S.msgs.push({ id: uid(), type:'agent', text });
-      saveState();
+    
       render();
       scrollChat();
       resolve();
@@ -371,10 +332,15 @@ function scrollChat() {
   }, 60);
 }
 
+let askingInProgress = false;
 async function askNext(secIdx, fldIdx, data) {
+  if (askingInProgress) return;
+  askingInProgress = true;
+
   const fields = activeF(secIdx, data);
   while (fldIdx < fields.length && fields[fldIdx].type === 'notice') {
-    await addAgent(md(fields[fldIdx].msg), 300);
+    const noticeText = md(fields[fldIdx].msg);
+    if (!isDuplicateMsg(noticeText)) await addAgent(noticeText, 300);
     fldIdx++;
     S.fldIdx = fldIdx;
   }
@@ -384,17 +350,22 @@ async function askNext(secIdx, fldIdx, data) {
       if (SECTIONS[nextSec].review) {
         S.secIdx = nextSec;
         S.fldIdx = 0;
-        saveState();
-        await addAgent("Let me compile your listing for review...", 500);
+      
+        if (!isDuplicateMsg("Let me compile your listing for review...")) await addAgent("Let me compile your listing for review...", 500);
         render();
+        askingInProgress = false;
         return;
       }
       S.secIdx = nextSec;
       S.fldIdx = 0;
-      saveState();
+    
       render();
-      await addAgent(`Great! Moving to **${SECTIONS[nextSec].icon} ${SECTIONS[nextSec].title}**...`, 400);
+      const moveMsg = `Great! Moving to **${SECTIONS[nextSec].icon} ${SECTIONS[nextSec].title}**...`;
+      if (!isDuplicateMsg(moveMsg)) await addAgent(moveMsg, 400);
+      askingInProgress = false;
       askNext(nextSec, 0, data);
+    } else {
+      askingInProgress = false;
     }
     return;
   }
@@ -403,21 +374,38 @@ async function askNext(secIdx, fldIdx, data) {
     const pv = cf.prefill();
     if (pv) {
       S.data[cf.key] = pv;
-      await addAgent(md(cf.q), 300);
+      const qText = md(cf.q);
+      if (!isDuplicateMsg(qText)) await addAgent(qText, 300);
       addUser(pv, cf.key);
-      await addAgent(`Got it — **${pv}** ✓`, 200);
+      if (!isDuplicateMsg(`Got it — **${pv}** ✓`)) await addAgent(`Got it — **${pv}** ✓`, 200);
       S.fldIdx = fldIdx + 1;
+      askingInProgress = false;
       askNext(secIdx, fldIdx + 1, S.data);
       return;
     }
   }
-  await addAgent(md(cf.q), 350);
+  // Only ask the question if it hasn't been asked already
+  const questionText = md(cf.q);
+  if (!isDuplicateMsg(questionText)) {
+    await addAgent(questionText, 350);
+  }
   S.fldIdx = fldIdx;
   render();
   setTimeout(() => {
     const inp = $('inp');
     if (inp) inp.focus();
   }, 100);
+  askingInProgress = false;
+}
+
+// Check if the last agent message is the same as what we're about to send
+function isDuplicateMsg(text) {
+  const agentMsgs = S.msgs.filter(m => m.type === 'agent');
+  if (agentMsgs.length === 0) return false;
+  const last = agentMsgs[agentMsgs.length - 1].text;
+  // Strip HTML for comparison
+  const clean = (s) => s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  return clean(last) === clean(text);
 }
 
 function send() {
@@ -431,7 +419,7 @@ function send() {
   S.data[cf.key] = val;
   addUser(val, cf.key);
   S.fldIdx++;
-  setTimeout(() => askNext(S.secIdx, S.fldIdx, S.data), 300);
+  setTimeout(() => { askingInProgress = false; askNext(S.secIdx, S.fldIdx, S.data); }, 300);
 }
 
 function selOpt(val) {
@@ -441,7 +429,7 @@ function selOpt(val) {
   S.data[cf.key] = val;
   addUser(val, cf.key);
   S.fldIdx++;
-  setTimeout(() => askNext(S.secIdx, S.fldIdx, S.data), 300);
+  setTimeout(() => { askingInProgress = false; askNext(S.secIdx, S.fldIdx, S.data); }, 300);
 }
 
 function skip() {
@@ -450,7 +438,7 @@ function skip() {
   if (!cf) return;
   addUser('Skipped');
   S.fldIdx++;
-  setTimeout(() => askNext(S.secIdx, S.fldIdx, S.data), 300);
+  setTimeout(() => { askingInProgress = false; askNext(S.secIdx, S.fldIdx, S.data); }, 300);
 }
 
 async function handleFile(e) {
@@ -474,13 +462,14 @@ async function handleFile(e) {
   addUser('📎 ' + converted.map(f => f.name).join(', '));
   await addAgent(`Received ${converted.length} file(s) ✓`, 250);
   S.fldIdx++;
+  askingInProgress = false;
   askNext(S.secIdx, S.fldIdx, S.data);
 }
 
 function skipFile() {
   addUser('Will provide later');
   S.fldIdx++;
-  setTimeout(() => askNext(S.secIdx, S.fldIdx, S.data), 300);
+  setTimeout(() => { askingInProgress = false; askNext(S.secIdx, S.fldIdx, S.data); }, 300);
 }
 
 function deleteFile(key, idx) {
@@ -590,7 +579,7 @@ async function submitListing() {
     } catch (err) { console.error('EmailJS error:', err); }
     S.submitted = true;
     S.submitting = false;
-    saveState();
+  
     render();
     scrollChat();
   } catch (err) {
@@ -685,9 +674,8 @@ function toggleSB() { S.showMobileSB = !S.showMobileSB; render(); }
 
 function resetAll() {
   if (!confirm('Reset the entire listing form? All entered data will be cleared.')) return;
-  localStorage.removeItem(STORAGE_KEY);
   S.secIdx = 0; S.fldIdx = 0; S.msgs = []; S.data = {}; S.files = {};
-  S.typing = false; S.submitting = false; S.submitted = false; S.resumed = false;
+  S.typing = false; S.submitting = false; S.submitted = false;
   init();
 }
 
@@ -712,7 +700,7 @@ function editInline(key) {
           S.data[key] = newVal;
           const msgIdx = S.msgs.findIndex(m => m.fieldKey === key);
           if (msgIdx >= 0) S.msgs[msgIdx].text = newVal;
-          saveState();
+        
           render();
           scrollChat();
         }
@@ -865,30 +853,9 @@ function render() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  INIT — FIXED: No more infinite loop on resume
+//  INIT — Always fresh start (no localStorage persistence)
 // ═══════════════════════════════════════════════════════════════
 async function init() {
-  // Resuming from saved state
-  if (S.secIdx > 0 && S.msgs.length > 0 && !S.resumed) {
-    S.resumed = true;
-    render();
-    scrollChat();
-    // Just ask the current question — no welcome-back spam
-    const sec = SECTIONS[S.secIdx];
-    if (sec && !sec.review && !sec.greeting) {
-      askNext(S.secIdx, S.fldIdx, S.data);
-    } else if (sec && sec.review) {
-      render();
-    }
-    return;
-  }
-
-  if (S.resumed) {
-    render();
-    return;
-  }
-
-  // Fresh start
   render();
   await addAgent(`Welcome to the **Listing Agent** by Nation Realtor.`, 800);
   await addAgent(`I'll walk you through your **Residential Real Estate Listing** — section by section.`, 600);
@@ -899,9 +866,8 @@ async function init() {
   await addAgent(`Let's begin with **${SECTIONS[1].icon} ${SECTIONS[1].title}**...`, 400);
   S.secIdx = 1;
   S.fldIdx = 0;
-  saveState();
   render();
-  setTimeout(() => askNext(1, 0, S.data), 800);
+  setTimeout(() => { askingInProgress = false; askNext(1, 0, S.data); }, 800);
 }
 
 init();

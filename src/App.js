@@ -913,9 +913,14 @@ export default function RealtyAI() {
     if (!user) return;
     (async () => {
       try {
-        const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(user.email)}&select=plan,search_count,search_reset_date`, { method: "GET" });
+        const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(user.email)}&select=plan,search_count,search_reset_date,profile_photo_url`, { method: "GET" });
         if (data && data.length > 0) {
           setUserPlan(data[0].plan || "free");
+          // *** Load profile photo from Supabase ***
+          if (data[0].profile_photo_url) {
+            setProfilePhoto(data[0].profile_photo_url);
+            try { localStorage.setItem('realtyai_profilePhoto', data[0].profile_photo_url); } catch {}
+          }
           const resetDate = new Date(data[0].search_reset_date || Date.now());
           const now = new Date();
           if (now.getMonth() !== resetDate.getMonth() || now.getFullYear() !== resetDate.getFullYear()) {
@@ -1145,15 +1150,35 @@ export default function RealtyAI() {
     setAttachments((prev) => [...prev, ...files.map((f) => ({ name: f.name, size: f.size, type: f.type }))]);
   };
 
-  // *** SIDEBAR: Handle profile photo upload ***
+  // *** SIDEBAR: Handle profile photo upload — saves to localStorage + Supabase ***
   const handleProfilePhoto = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Resize image before storing (keep under 500KB for Supabase text field)
       const reader = new FileReader();
       reader.onload = (ev) => {
-        const photoData = ev.target.result;
-        setProfilePhoto(photoData);
-        try { localStorage.setItem('realtyai_profilePhoto', photoData); } catch (err) { console.log("Photo too large for localStorage"); }
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxSize = 200; // 200x200 max
+          let w = img.width, h = img.height;
+          if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const photoData = canvas.toDataURL('image/jpeg', 0.8);
+          setProfilePhoto(photoData);
+          try { localStorage.setItem('realtyai_profilePhoto', photoData); } catch {}
+          // Save to Supabase
+          if (user?.email) {
+            supabaseRequest(`/users?email=eq.${encodeURIComponent(user.email)}`, {
+              method: "PATCH",
+              body: JSON.stringify({ profile_photo_url: photoData }),
+            }).catch((err) => console.error("Photo save error:", err));
+          }
+        };
+        img.src = ev.target.result;
       };
       reader.readAsDataURL(file);
     }
@@ -1325,9 +1350,14 @@ export default function RealtyAI() {
         setUser(userData);
         localStorage.setItem('realtyai_user', JSON.stringify(userData));
         try {
-          const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(userData.email)}&select=plan,search_count,search_reset_date`, { method: "GET" });
+          const { data } = await supabaseRequest(`/users?email=eq.${encodeURIComponent(userData.email)}&select=plan,search_count,search_reset_date,profile_photo_url`, { method: "GET" });
           if (data && data.length > 0) {
             setUserPlan(data[0].plan || "free");
+            // *** Load profile photo from Supabase on login ***
+            if (data[0].profile_photo_url) {
+              setProfilePhoto(data[0].profile_photo_url);
+              try { localStorage.setItem('realtyai_profilePhoto', data[0].profile_photo_url); } catch {}
+            }
             const resetDate = new Date(data[0].search_reset_date || Date.now());
             const now = new Date();
             if (now.getMonth() !== resetDate.getMonth() || now.getFullYear() !== resetDate.getFullYear()) {

@@ -6,7 +6,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_RBY52Obs_adPGMsKM3bMjA_ifz6WF2H";
 const EMAILJS_SERVICE_ID = "service_rh6uozl";
 const EMAILJS_TEMPLATE_ID = "template_b6xnvkj";
 const EMAILJS_PUBLIC_KEY = "xElMdZFRvZqh8-bIw";
-const TAVILY_API_KEY = "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";
+const TAVILY_API_KEY = "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";
 
 // ─── STYLES ───────────────────────────────────────────────────────────
 const theme = {

@@ -6,7 +6,8 @@ const SUPABASE_ANON_KEY = "sb_publishable_RBY52Obs_adPGMsKM3bMjA_ifz6WF2H";
 const EMAILJS_SERVICE_ID = "service_rh6uozl";
 const EMAILJS_TEMPLATE_ID = "template_b6xnvkj";
 const EMAILJS_PUBLIC_KEY = "xElMdZFRvZqh8-bIw";
-const TAVILY_API_KEY = "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";
+
+// *** FIRECRAWL: API key moved server-side to Netlify env var FIRECRAWL_API_KEY ***
 
 // ─── STYLES ───────────────────────────────────────────────────────────
 const theme = {
@@ -191,37 +192,80 @@ async function sendVerificationEmail(email, code) {
   return res;
 }
 
-// ─── TAVILY SEARCH ────────────────────────────────────────────────────
-async function tavilySearch(query) {
+// ─── FIRECRAWL SEARCH (replaces Tavily) ───────────────────────────────
+async function firecrawlSearch(query, options = {}) {
   if (DEMO_MODE) {
     return generateDemoResults(query);
   }
   try {
-    const res = await fetch("https://api.tavily.com/search", {
+    const res = await fetch("/.netlify/functions/firecrawl-search", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${TAVILY_API_KEY}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query,
-        search_depth: "basic",
-        include_images: true,
-        max_results: 8,
+        limit: options.limit || 5,
+        scrapeOptions: options.scrapeOptions || {
+          formats: ["markdown", "links"],
+          onlyMainContent: true,
+        },
       }),
     });
     if (!res.ok) {
-      console.error("Tavily API error:", res.status, res.statusText);
+      console.error("[Firecrawl] API error:", res.status, res.statusText);
       return { results: [], images: [], error: `API error: ${res.status}` };
     }
     const data = await res.json();
-    if (data.error) {
-      console.error("Tavily error response:", data.error);
+    if (!data.success && data.error) {
+      console.error("[Firecrawl] Error response:", data.error);
       return { results: [], images: [], error: data.error };
     }
-    return data;
+    // Normalize Firecrawl response to match the shape our app expects:
+    // Firecrawl returns: { success, data: [{ url, title, description, markdown, metadata }] }
+    // Our app expects: { results: [{ url, title, content }], images: [] }
+    const fcResults = data.data || [];
+    const results = fcResults.map(r => ({
+      url: r.url || "",
+      title: r.title || r.metadata?.title || "",
+      content: r.markdown || r.description || "",
+      // Firecrawl gives us the full page markdown — much richer than Tavily snippets
+    }));
+    // Extract image URLs from markdown content
+    const images = [];
+    fcResults.forEach(r => {
+      if (r.markdown) {
+        // Find markdown image references: ![alt](url)
+        const imgMatches = r.markdown.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/g) || [];
+        imgMatches.forEach(m => {
+          const urlMatch = m.match(/\((https?:\/\/[^\s)]+)\)/);
+          if (urlMatch && urlMatch[1]) {
+            const imgUrl = urlMatch[1];
+            // Filter for actual property photos (not icons, logos, etc)
+            if (imgUrl.match(/\.(jpg|jpeg|png|webp)/i) &&
+                !imgUrl.includes('logo') && !imgUrl.includes('icon') &&
+                !imgUrl.includes('favicon') && !imgUrl.includes('avatar') &&
+                !imgUrl.includes('sprite') && images.length < 6) {
+              images.push(imgUrl);
+            }
+          }
+        });
+        // Also look for raw image URLs in markdown (some sites use HTML img tags)
+        const htmlImgMatches = r.markdown.match(/src=["'](https?:\/\/[^"'\s]+\.(?:jpg|jpeg|png|webp)[^"'\s]*)["']/gi) || [];
+        htmlImgMatches.forEach(m => {
+          const urlMatch = m.match(/src=["'](https?:\/\/[^"'\s]+)["']/i);
+          if (urlMatch && urlMatch[1] && images.length < 6) {
+            const imgUrl = urlMatch[1];
+            if (!imgUrl.includes('logo') && !imgUrl.includes('icon') &&
+                !imgUrl.includes('favicon') && !images.includes(imgUrl)) {
+              images.push(imgUrl);
+            }
+          }
+        });
+      }
+    });
+    console.log("[Firecrawl] Results:", results.length, "| Images found:", images.length);
+    return { results, images };
   } catch (e) {
-    console.error("Tavily fetch failed:", e);
+    console.error("[Firecrawl] Fetch failed:", e);
     return { results: [], images: [], error: e.message };
   }
 }
@@ -229,7 +273,10 @@ async function tavilySearch(query) {
 // ─── FETCH DAILY MORTGAGE RATE ────────────────────────────────────────
 async function fetchMortgageRate() {
   try {
-    const res = await tavilySearch("today's 30 year fixed mortgage rate MND daily mortgage rate index");
+   const res = await firecrawlSearch("today's 30 year fixed mortgage rate MND daily mortgage rate index", {
+      limit: 3,
+      scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
+    });
     const allContent = (res.results || []).map(r => r.content).join(" ");
     const rateMatch = allContent.match(/(?:30[- ]?year[- ]?fixed|30[- ]?yr)[^]*?(\d\.\d{1,2})%/i)
       || allContent.match(/(\d\.\d{1,2})%[^]*?(?:30[- ]?year|30[- ]?yr|fixed)/i)
@@ -1153,7 +1200,7 @@ export default function RealtyAI() {
 
     try {
       const [results, mortgageRate] = await Promise.all([
-        tavilySearch(searchQuery),
+       firecrawlSearch(searchQuery),
         fetchMortgageRate(),
       ]);
 

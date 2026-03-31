@@ -1008,6 +1008,7 @@ function buildAreaLinks(address, encodedAddr) {
   o += `[🌳 Parks](#amenity-park-${encodedAddr})\n`;
   o += `[🏛️ County Assessor](#amenity-assessor-${encodedAddr})\n`;
   o += `[🗺️ Map](#amenity-map-${encodedAddr})\n`;
+  o += `[📊 CMA Report](#cma-report-${encodedAddr})\n`;
   o += `[📅 Schedule a Tour](#schedule-tour)\n`;
   return o;
 }
@@ -1080,6 +1081,11 @@ export default function RealtyAI() {
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editLocation, setEditLocation] = useState("");
+  // *** CMA REPORT PANEL ***
+  const [showCMAPanel, setShowCMAPanel] = useState(false);
+  const [cmaAddress, setCmaAddress] = useState("");
+  const [cmaLoading, setCmaLoading] = useState(false);
+  const [cmaReport, setCmaReport] = useState("");
   // *** Counters — all from Supabase ***
   const [listingCount, setListingCount] = useState(0);
   const [offerCount, setOfferCount] = useState(0);
@@ -1195,6 +1201,18 @@ export default function RealtyAI() {
       if (href === '#schedule-tour') {
         e.preventDefault();
         setShowTourAgent(true);
+      }
+      // *** CMA REPORT: Intercept CMA hash links ***
+      if (href.startsWith('#cma-report-')) {
+        e.preventDefault();
+        const encodedAddress = href.substring(12); // remove '#cma-report-'
+        const address = decodeURIComponent(encodedAddress);
+        setCmaAddress(address);
+        setShowCMAPanel(true);
+        setCmaReport("");
+        setCmaLoading(true);
+        // Auto-generate the report
+        generateCMAReport(address);
       }
       // *** AMENITY PANELS: Intercept amenity hash links ***
       if (href.startsWith('#amenity-')) {
@@ -1452,6 +1470,11 @@ export default function RealtyAI() {
       setShowMortgageAgent(true);
     } else if (agent === 'live') {
       window.open('https://studio.restream.io/euf-vqup-uwl', '_blank');
+    } else if (agent === 'cma') {
+      setCmaAddress("");
+      setCmaReport("");
+      setCmaLoading(false);
+      setShowCMAPanel(true);
     }
   };
 
@@ -1502,6 +1525,96 @@ export default function RealtyAI() {
       setAmenityLoading(false);
     }
   }, [showAmenityPanel]);
+
+  // *** CMA REPORT: Generate function ***
+  const generateCMAReport = async (address) => {
+    setCmaLoading(true);
+    setCmaReport("");
+    try {
+      // Step 1: Run 3 Firecrawl searches in parallel for comprehensive data
+      const [compsRes, activeRes, marketRes] = await Promise.all([
+        firecrawlSearch(`"${address}" recently sold comparable sales nearby`, {
+          limit: 5,
+          scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
+        }),
+        firecrawlSearch(`homes for sale near ${address}`, {
+          limit: 5,
+          scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
+        }),
+        firecrawlSearch(`real estate market trends ${address} 2026 median price days on market`, {
+          limit: 3,
+          scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
+        }),
+      ]);
+
+      // Step 2: Gather all scraped content
+      const compsContent = (compsRes.results || []).map(r => `SOURCE: ${r.url}\n${r.content}`).join("\n\n---\n\n");
+      const activeContent = (activeRes.results || []).map(r => `SOURCE: ${r.url}\n${r.content}`).join("\n\n---\n\n");
+      const marketContent = (marketRes.results || []).map(r => `SOURCE: ${r.url}\n${r.content}`).join("\n\n---\n\n");
+
+      // Step 3: Send to Claude for synthesis
+      const systemPrompt = `You are a professional real estate CMA (Comparative Market Analysis) analyst. Generate a comprehensive CMA report for the subject property. Use ONLY data found in the provided scraped content. Do NOT make up addresses, prices, or data that isn't in the content.
+
+Format your report with these exact sections using markdown:
+
+**SUBJECT PROPERTY**
+- Address, estimated value, key specs (beds/baths/sqft/year built) from the data
+
+**COMPARABLE SALES (Recently Sold)**
+Create a markdown table with columns: Address | Sold Price | Beds | Baths | SqFt | $/SqFt | Sold Date
+Include 3-5 comparable properties that actually appear in the data.
+
+**ACTIVE LISTINGS (Competition)**
+Create a markdown table with columns: Address | Asking Price | Beds | Baths | SqFt | $/SqFt | Days on Market
+Include 2-4 active listings from the data.
+
+**MARKET TRENDS**
+- Median home price for the area
+- Average days on market
+- Price trend (up/down/stable)
+- Market type (buyer's/seller's/balanced)
+Include any statistics found in the data.
+
+**ESTIMATED VALUE RANGE**
+- Based on the comparable sales, provide a low/mid/high value estimate
+- Show the average price per sqft from comps
+- Suggested listing price range
+
+Be concise, professional, and data-driven. Use markdown tables and bold headers. If certain data points aren't available in the scraped content, note "Data not available" rather than fabricating numbers.`;
+
+      const userPrompt = `Generate a CMA report for: ${address}
+
+RECENTLY SOLD / COMPARABLE SALES DATA:
+${compsContent || "No comparable sales data found."}
+
+ACTIVE LISTINGS DATA:
+${activeContent || "No active listings data found."}
+
+MARKET TRENDS DATA:
+${marketContent || "No market trends data found."}`;
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 2000,
+          messages: [
+            { role: "user", content: userPrompt }
+          ],
+          system: systemPrompt,
+        }),
+      });
+
+      const data = await response.json();
+      const reportText = (data.content || []).map(c => c.text || "").join("\n");
+      setCmaReport(reportText || "Unable to generate CMA report. Please try again.");
+    } catch (e) {
+      console.error("CMA Report error:", e);
+      setCmaReport("Error generating CMA report: " + e.message + "\n\nPlease try again.");
+    }
+    setCmaLoading(false);
+  };
 
   // *** VOICE MODE: Core functions ***
   const stripMarkdown = (text) => {
@@ -1783,6 +1896,7 @@ export default function RealtyAI() {
               { icon: Icons.agentOffer, label: "Submit an offer", agent: "offer" },
               { icon: Icons.agentApproved, label: "Get approved", agent: "mortgage" },
               { icon: Icons.agentLive, label: "Live stream", agent: "live" },
+              { icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M3 3h18v18H3z" stroke="#E31837" strokeWidth="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18" stroke="#E31837" strokeWidth="1.5" opacity="0.5"/></svg>, label: "CMA Report", agent: "cma" },
             ].map((item, i) => (
               <div key={i} onClick={() => handleAgentClick(item.agent)} style={{
                 display: "flex", alignItems: "center", gap: 10, padding: "10px 0",
@@ -2261,6 +2375,170 @@ export default function RealtyAI() {
               <button onClick={() => setShowTourAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#555', minHeight: 36 }}>✕ Close</button>
             </div>
             <iframe ref={tourIframeRef} src="/schedule-tour.html" style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }} title="Schedule a Tour" />
+          </div>
+        </div>
+      )}
+
+      {/* *** CMA REPORT PANEL *** */}
+      {showCMAPanel && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 9999, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCMAPanel(false); }}
+        >
+          <div style={{
+            width: window.innerWidth <= 768 ? '100%' : '95%',
+            maxWidth: window.innerWidth <= 768 ? '100%' : 1000,
+            height: window.innerWidth <= 768 ? '100%' : '92vh',
+            background: '#fff',
+            borderRadius: window.innerWidth <= 768 ? 0 : '16px 16px 0 0',
+            boxShadow: '0 -4px 40px rgba(0,0,0,0.25)',
+            position: 'relative', overflow: 'hidden',
+            animation: 'slideUp 0.3s ease-out',
+            display: 'flex', flexDirection: 'column',
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 20px', background: '#fff', borderBottom: '1px solid #E5E7EB',
+              flexShrink: 0,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <img src="/logo.png" alt="Realty AI" style={{ width: 28, height: 28, borderRadius: 6 }} />
+                <span style={{ fontSize: 15, fontWeight: 700, color: theme.red, fontFamily: theme.font }}>
+                  📊 CMA Report
+                </span>
+              </div>
+              <button onClick={() => setShowCMAPanel(false)} style={{
+                background: 'none', border: '1px solid #E5E7EB', borderRadius: 8,
+                padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                fontFamily: theme.font, color: '#555', minHeight: 32,
+              }}>✕ Close</button>
+            </div>
+
+            {/* Address Input */}
+            <div style={{
+              padding: '16px 20px', borderBottom: '1px solid #f0f0f0',
+              display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0,
+            }}>
+              <input
+                value={cmaAddress}
+                onChange={(e) => setCmaAddress(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && cmaAddress.trim()) { setCmaReport(""); setCmaLoading(true); generateCMAReport(cmaAddress.trim()); } }}
+                placeholder="Enter property address (e.g., 123 Main St, Las Vegas, NV 89141)"
+                style={{
+                  flex: 1, padding: '12px 16px', border: '2px solid #E5E7EB', borderRadius: 10,
+                  fontSize: 14, fontFamily: theme.font, outline: 'none',
+                }}
+                onFocus={(e) => e.target.style.borderColor = theme.red}
+                onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+              />
+              <button
+                onClick={() => { if (cmaAddress.trim()) { setCmaReport(""); setCmaLoading(true); generateCMAReport(cmaAddress.trim()); } }}
+                disabled={cmaLoading || !cmaAddress.trim()}
+                style={{
+                  padding: '12px 20px', background: theme.red, color: '#fff',
+                  border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600,
+                  cursor: cmaLoading ? 'not-allowed' : 'pointer', fontFamily: theme.font,
+                  opacity: cmaLoading || !cmaAddress.trim() ? 0.6 : 1,
+                  whiteSpace: 'nowrap', flexShrink: 0,
+                }}
+              >
+                {cmaLoading ? 'Generating...' : 'Generate CMA'}
+              </button>
+            </div>
+
+            {/* Report Content */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+              {/* Loading State */}
+              {cmaLoading && (
+                <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                  <div style={{ marginBottom: 16 }}>{Icons.spinner}</div>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, color: theme.dark, fontFamily: theme.fontDisplay, marginBottom: 8 }}>
+                    Generating CMA Report
+                  </h3>
+                  <p style={{ fontSize: 14, color: theme.grey, marginBottom: 4 }}>
+                    Searching comparable sales, active listings, and market data...
+                  </p>
+                  <p style={{ fontSize: 12, color: '#bbb' }}>
+                    This may take 10-15 seconds
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 24 }}>
+                    {['Comps', 'Active Listings', 'Market Trends', 'AI Analysis'].map((step, i) => (
+                      <div key={i} style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                      }}>
+                        <div style={{
+                          width: 36, height: 36, borderRadius: '50%',
+                          background: 'rgba(227,24,55,0.08)', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center',
+                          animation: `pulse 1.5s infinite`, animationDelay: `${i * 0.3}s`,
+                        }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: theme.red }} />
+                        </div>
+                        <span style={{ fontSize: 10, color: theme.grey }}>{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty State (no address yet, opened from sidebar) */}
+              {!cmaLoading && !cmaReport && !cmaAddress && (
+                <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                  <div style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }}>📊</div>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, color: theme.dark, fontFamily: theme.fontDisplay, marginBottom: 8 }}>
+                    Comparative Market Analysis
+                  </h3>
+                  <p style={{ fontSize: 14, color: theme.grey, lineHeight: 1.6 }}>
+                    Enter a property address above to generate a professional CMA report with comparable sales, active listings, market trends, and an AI-powered value estimate.
+                  </p>
+                </div>
+              )}
+
+              {/* Report Rendered */}
+              {!cmaLoading && cmaReport && (
+                <div>
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(227,24,55,0.05), rgba(227,24,55,0.02))',
+                    borderRadius: 12, padding: '16px 20px', marginBottom: 20,
+                    border: '1px solid rgba(227,24,55,0.1)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 16 }}>📊</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: theme.red }}>CMA Report</span>
+                    </div>
+                    <span style={{ fontSize: 13, color: theme.dark, fontWeight: 600 }}>{cmaAddress}</span>
+                    <span style={{ fontSize: 11, color: theme.grey, display: 'block', marginTop: 4 }}>
+                      Generated {new Date().toLocaleDateString()} · Powered by Firecrawl + Claude AI
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 14, lineHeight: 1.7, color: theme.dark }}>
+                    <RichContent content={cmaReport} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '10px 20px', borderTop: '1px solid #f0f0f0',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0,
+            }}>
+              <span style={{ fontSize: 11, color: '#aaa' }}>
+                Data sourced from Zillow, Redfin, Realtor.com · For informational purposes only
+              </span>
+              {cmaReport && (
+                <button onClick={() => { setCmaReport(""); setCmaLoading(true); generateCMAReport(cmaAddress); }} style={{
+                  padding: '6px 14px', background: 'transparent', border: '1px solid #E5E7EB',
+                  borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: theme.font, color: theme.grey,
+                }}>🔄 Regenerate</button>
+              )}
+            </div>
           </div>
         </div>
       )}

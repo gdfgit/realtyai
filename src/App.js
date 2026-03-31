@@ -1548,9 +1548,9 @@ export default function RealtyAI() {
       ]);
 
       // Step 2: Gather all scraped content
-      const compsContent = (compsRes.results || []).map(r => `SOURCE: ${r.url}\n${r.content}`).join("\n\n---\n\n");
-      const activeContent = (activeRes.results || []).map(r => `SOURCE: ${r.url}\n${r.content}`).join("\n\n---\n\n");
-      const marketContent = (marketRes.results || []).map(r => `SOURCE: ${r.url}\n${r.content}`).join("\n\n---\n\n");
+      const compsContent = (compsRes.results || []).map(r => `SOURCE: ${r.url}\nTITLE: ${r.title}\n${(r.content || "").substring(0, 500)}`).join("\n\n---\n\n");
+      const activeContent = (activeRes.results || []).map(r => `SOURCE: ${r.url}\nTITLE: ${r.title}\n${(r.content || "").substring(0, 500)}`).join("\n\n---\n\n");
+      const marketContent = (marketRes.results || []).map(r => `SOURCE: ${r.url}\nTITLE: ${r.title}\n${(r.content || "").substring(0, 500)}`).join("\n\n---\n\n");
 
       // Step 3: Send to Claude for synthesis
       const systemPrompt = `You are a professional real estate CMA (Comparative Market Analysis) analyst. Generate a comprehensive CMA report for the subject property. Use ONLY data found in the provided scraped content. Do NOT make up addresses, prices, or data that isn't in the content.

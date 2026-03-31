@@ -1,7 +1,3 @@
-// netlify/functions/cma-report.js
-// Server-side proxy for Anthropic Claude API — generates CMA reports
-// API key stored in Netlify env var: ANTHROPIC_API_KEY
-
 const fetch = require('node-fetch');
 
 exports.handler = async (event) => {
@@ -22,7 +18,6 @@ exports.handler = async (event) => {
 
   const API_KEY = process.env.ANTHROPIC_API_KEY;
   if (!API_KEY) {
-    console.error('ANTHROPIC_API_KEY not set in environment variables');
     return {
       statusCode: 200,
       headers,
@@ -31,20 +26,20 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { system, messages, max_tokens } = JSON.parse(event.body);
+    const body = JSON.parse(event.body);
+    const systemText = body.system || '';
+    const messages = body.messages || [];
+    const maxTokens = body.max_tokens || 1000;
 
     if (!messages || messages.length === 0) {
       return {
-        statusCode: 400,
+        statusCode: 200,
         headers,
         body: JSON.stringify({ error: 'Missing messages', content: [] }),
       };
     }
 
     console.log('[CMA] Generating report...');
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 55000); // 55 second timeout
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -55,16 +50,11 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: max_tokens || 2000,
-       system: system ? [{ type: "text", text: system }] : undefined,
-        messages,
+        max_tokens: maxTokens,
+        system: systemText,
+        messages: messages,
       }),
-        messages,
-      }),
-      signal: controller.signal,
     });
-
-    clearTimeout(timeout);
 
     if (!res.ok) {
       const errText = await res.text();
@@ -72,7 +62,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({ error: `Claude API error: ${res.status}`, content: [] }),
+        body: JSON.stringify({ error: 'Claude API error: ' + res.status, content: [] }),
       };
     }
 
@@ -85,15 +75,7 @@ exports.handler = async (event) => {
       body: JSON.stringify(data),
     };
   } catch (error) {
-    if (error.name === 'AbortError') {
-      console.error('[CMA] Request timed out');
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ error: 'Report generation timed out. Try again.', content: [] }),
-      };
-    }
-    console.error('[CMA] Function error:', error);
+    console.error('[CMA] Function error:', error.message);
     return {
       statusCode: 200,
       headers,

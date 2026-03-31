@@ -192,7 +192,7 @@ async function sendVerificationEmail(email, code) {
   return res;
 }
 
-// ─── FIRECRAWL SEARCH (replaces Tavily) ───────────────────────────────
+// ─── FIRECRAWL SEARCH ───────────────────────────────
 async function firecrawlSearch(query, options = {}) {
   if (DEMO_MODE) {
     return generateDemoResults(query);

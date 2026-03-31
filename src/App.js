@@ -227,7 +227,7 @@ async function firecrawlSearch(query, options = {}) {
     // Normalize Firecrawl response to match the shape our app expects:
     // Firecrawl returns: { success, data: [{ url, title, description, markdown? }] }
     // Our app expects: { results: [{ url, title, content }], images: [] }
-    const fcResults = data.data || [];
+   const fcResults = (data.data && data.data.web) ? data.data.web : (Array.isArray(data.data) ? data.data : []);
     const results = fcResults.map(r => ({
       url: r.url || "",
       title: r.title || "",

@@ -198,48 +198,53 @@ async function firecrawlSearch(query, options = {}) {
     return generateDemoResults(query);
   }
   try {
+    const requestBody = {
+      query,
+      limit: options.limit || 5,
+    };
+
+    // Only include scrapeOptions if explicitly passed
+    // Without scrapeOptions: fast search (2-3 sec), returns title + url + description
+    // With scrapeOptions: slower (10-20 sec), returns full page markdown
+    if (options.scrapeOptions) {
+      requestBody.scrapeOptions = options.scrapeOptions;
+    }
+
     const res = await fetch("/.netlify/functions/firecrawl-search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query,
-        limit: options.limit || 5,
-        scrapeOptions: options.scrapeOptions || {
-          formats: ["markdown", "links"],
-          onlyMainContent: true,
-        },
-      }),
+      body: JSON.stringify(requestBody),
     });
     if (!res.ok) {
       console.error("[Firecrawl] API error:", res.status, res.statusText);
       return { results: [], images: [], error: `API error: ${res.status}` };
     }
     const data = await res.json();
-    if (!data.success && data.error) {
+    if (data.error || data.success === false) {
       console.error("[Firecrawl] Error response:", data.error);
       return { results: [], images: [], error: data.error };
     }
     // Normalize Firecrawl response to match the shape our app expects:
-    // Firecrawl returns: { success, data: [{ url, title, description, markdown, metadata }] }
+    // Firecrawl returns: { success, data: [{ url, title, description, markdown? }] }
     // Our app expects: { results: [{ url, title, content }], images: [] }
     const fcResults = data.data || [];
     const results = fcResults.map(r => ({
       url: r.url || "",
-      title: r.title || r.metadata?.title || "",
+      title: r.title || "",
+      // Use markdown if available (when scrapeOptions was used), otherwise description
       content: r.markdown || r.description || "",
-      // Firecrawl gives us the full page markdown — much richer than Tavily snippets
     }));
-    // Extract image URLs from markdown content
+    // Extract image URLs from markdown content (only present if scrapeOptions was used)
     const images = [];
     fcResults.forEach(r => {
-      if (r.markdown) {
+      const text = r.markdown || "";
+      if (text) {
         // Find markdown image references: ![alt](url)
-        const imgMatches = r.markdown.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/g) || [];
+        const imgMatches = text.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/g) || [];
         imgMatches.forEach(m => {
           const urlMatch = m.match(/\((https?:\/\/[^\s)]+)\)/);
           if (urlMatch && urlMatch[1]) {
             const imgUrl = urlMatch[1];
-            // Filter for actual property photos (not icons, logos, etc)
             if (imgUrl.match(/\.(jpg|jpeg|png|webp)/i) &&
                 !imgUrl.includes('logo') && !imgUrl.includes('icon') &&
                 !imgUrl.includes('favicon') && !imgUrl.includes('avatar') &&
@@ -248,8 +253,8 @@ async function firecrawlSearch(query, options = {}) {
             }
           }
         });
-        // Also look for raw image URLs in markdown (some sites use HTML img tags)
-        const htmlImgMatches = r.markdown.match(/src=["'](https?:\/\/[^"'\s]+\.(?:jpg|jpeg|png|webp)[^"'\s]*)["']/gi) || [];
+        // Also look for HTML img src attributes in markdown
+        const htmlImgMatches = text.match(/src=["'](https?:\/\/[^"'\s]+\.(?:jpg|jpeg|png|webp)[^"'\s]*)["']/gi) || [];
         htmlImgMatches.forEach(m => {
           const urlMatch = m.match(/src=["'](https?:\/\/[^"'\s]+)["']/i);
           if (urlMatch && urlMatch[1] && images.length < 6) {

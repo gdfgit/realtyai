@@ -780,9 +780,37 @@ function buildPropertyResponse(query, searchResults, mortgageRate, isAddressSear
     return output;
   }
 
-  if (isAddressSearch) {
+if (isAddressSearch) {
     output += `🏠 **Property Details**\n\n`;
     output += `**${exactAddress}**\n\n`;
+
+    // Extract property details from content
+    const allContent = results.map(r => r.content || "").join(" ") + " " + results.map(r => r.title || "").join(" ");
+    const price = extractPrice(allContent) || 500000;
+    const sqft = extractSqft(allContent) || 2000;
+    const bedsMatch = allContent.match(/(\d+)\s*(?:beds?|bedrooms?|br)\b/i);
+    const bathsMatch = allContent.match(/([\d.]+)\s*(?:baths?|bathrooms?|ba)\b/i);
+    const yearMatch = allContent.match(/(?:built\s*(?:in\s*)?|year\s*built\s*[:.]?\s*)(\d{4})/i);
+    const lotMatch = allContent.match(/([\d,.]+)\s*(?:acre|sq\s*ft\s*lot|lot\s*size)/i);
+    const typeMatch = allContent.match(/\b(single\s*family|condo|townhouse|townhome|multi\s*family|duplex|triplex|manufactured)\b/i);
+
+    const beds = bedsMatch ? bedsMatch[1] : null;
+    const baths = bathsMatch ? bathsMatch[1] : null;
+    const yearBuilt = yearMatch ? yearMatch[1] : null;
+    const lotSize = lotMatch ? lotMatch[1] : null;
+    const propType = typeMatch ? typeMatch[1] : null;
+
+    // Show property summary
+    output += `💰 **Price: $${price.toLocaleString()}**\n\n`;
+    let details = [];
+    if (beds) details.push(`🛏️ ${beds} Beds`);
+    if (baths) details.push(`🛁 ${baths} Baths`);
+    if (sqft) details.push(`📐 ${sqft.toLocaleString()} sqft`);
+    if (yearBuilt) details.push(`📅 Built ${yearBuilt}`);
+    if (propType) details.push(`🏠 ${propType}`);
+    if (lotSize) details.push(`🌳 ${lotSize} acres lot`);
+    if (details.length > 0) output += details.join("  ·  ") + `\n\n`;
+
     if (images.length > 0) {
       output += `📸 **Property Photos**\n\n`;
       images.forEach((img) => { output += `{{IMG:${img}}}\n`; });
@@ -793,16 +821,13 @@ function buildPropertyResponse(query, searchResults, mortgageRate, isAddressSear
     if (bestResult) {
       output += `🔗 [View Full Listing](${bestResult.url})\n\n`;
     }
-    const allContent = results.map(r => r.content || "").join(" ") + " " + results.map(r => r.title || "").join(" ");
-    const price = extractPrice(allContent) || 500000;
-    const sqft = extractSqft(allContent) || 2000;
+
     output += buildMortgageTable(price, rate);
     output += buildCMATable(price, sqft);
     output += buildConfidentTrigger(price, sqft);
     output += buildAreaLinks(exactAddress, encodedAddr);
     return output;
   }
-
   if (isCommercial) {
     output += `🏢 **Commercial Real Estate Results**\n\n`;
   } else {

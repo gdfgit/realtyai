@@ -1593,22 +1593,25 @@ ${activeContent || "No active listings data found."}
 MARKET TRENDS DATA:
 ${marketContent || "No market trends data found."}`;
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/.netlify/functions/cma-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 2000,
+          system: systemPrompt,
           messages: [
             { role: "user", content: userPrompt }
           ],
-          system: systemPrompt,
+          max_tokens: 2000,
         }),
       });
 
       const data = await response.json();
-      const reportText = (data.content || []).map(c => c.text || "").join("\n");
-      setCmaReport(reportText || "Unable to generate CMA report. Please try again.");
+      if (data.error) {
+        setCmaReport("Error: " + data.error + "\n\nPlease try again.");
+      } else {
+        const reportText = (data.content || []).map(c => c.text || "").join("\n");
+        setCmaReport(reportText || "Unable to generate CMA report. Please try again.");
+      }
     } catch (e) {
       console.error("CMA Report error:", e);
       setCmaReport("Error generating CMA report: " + e.message + "\n\nPlease try again.");

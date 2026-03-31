@@ -1205,7 +1205,10 @@ export default function RealtyAI() {
 
     try {
       const [results, mortgageRate] = await Promise.all([
-       firecrawlSearch(searchQuery),
+        firecrawlSearch(searchQuery, isAddress ? {
+          limit: 3,
+          scrapeOptions: { formats: ["markdown", "links"], onlyMainContent: true }
+        } : { limit: 5 }),
         fetchMortgageRate(),
       ]);
 

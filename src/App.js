@@ -345,8 +345,8 @@ function generateDemoResults(query) {
   };
 }
 
-// ─── MORTGAGE CALCULATOR (accurate P&I, state-based taxes, extracted HOA) ──
-function calculateMortgage(price, rate, downPct, taxRate, hoaAmount) {
+// ─── MORTGAGE CALCULATOR (accurate P&I, extracted taxes & HOA) ────────
+function calculateMortgage(price, rate, downPct, monthlyTax, hoaAmount) {
   const downPayment = price * (downPct / 100);
   const loanAmount = price - downPayment;
   const monthlyRate = rate / 100 / 12;
@@ -355,27 +355,45 @@ function calculateMortgage(price, rate, downPct, taxRate, hoaAmount) {
   const monthlyPI = monthlyRate > 0
     ? (loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, numPayments))) / (Math.pow(1 + monthlyRate, numPayments) - 1)
     : loanAmount / numPayments;
-  const monthlyTax = (price * (taxRate || 0.0125)) / 12;
   const hoa = hoaAmount || 0;
+  const tax = monthlyTax || 0;
   return {
     downPayment: Math.round(downPayment),
     monthlyPI: Math.round(monthlyPI),
-    taxes: Math.round(monthlyTax),
+    taxes: Math.round(tax),
     hoa,
-    total: Math.round(monthlyPI + monthlyTax + hoa),
+    total: Math.round(monthlyPI + tax + hoa),
     loanAmount: Math.round(loanAmount),
   };
 }
 
-// ─── STATE TAX RATES (average effective property tax rates by state) ──
-function getStateTaxRate(address) {
+// ─── EXTRACT PROPERTY TAX FROM CONTENT ────────────────────────────────
+// Priority: 1) Extract actual annual tax from listing page, 2) Fall back to state average rate
+function extractPropertyTax(content, price, address) {
+  // Try to extract actual annual tax amount from listing content
+  if (content) {
+    // Zillow/Redfin patterns: "Property Tax: $5,234", "Annual tax: $5,234", "Tax assessed: $5,234"
+    const taxMatch = content.match(/(?:property\s*tax|annual\s*tax|tax\s*(?:assessed|amount|paid|history))\s*[:.]?\s*\$\s*([\d,]+)/i)
+      || content.match(/\$\s*([\d,]+)\s*(?:\/?\s*(?:yr|year|annually))\s*(?:tax|property)/i)
+      || content.match(/(?:tax|taxes)\s*[:.]?\s*\$\s*([\d,]+)\s*(?:\/?\s*(?:yr|year|annually))/i)
+      || content.match(/(?:property\s*tax|tax\s*amount)\s*\$\s*([\d,]+)/i);
+    if (taxMatch) {
+      const annualTax = parseInt(taxMatch[1].replace(/,/g, ''));
+      // Sanity check: tax should be between $500 and $100,000/year
+      if (annualTax >= 500 && annualTax <= 100000) {
+        return { monthlyTax: Math.round(annualTax / 12), annualTax, source: 'listing' };
+      }
+    }
+  }
+
+  // Fallback: use state average effective tax rate
   const stateRates = {
     'AL': 0.0040, 'AK': 0.0119, 'AZ': 0.0062, 'AR': 0.0062, 'CA': 0.0071,
     'CO': 0.0051, 'CT': 0.0198, 'DE': 0.0057, 'FL': 0.0089, 'GA': 0.0092,
     'HI': 0.0028, 'ID': 0.0063, 'IL': 0.0197, 'IN': 0.0085, 'IA': 0.0157,
     'KS': 0.0141, 'KY': 0.0086, 'LA': 0.0055, 'ME': 0.0136, 'MD': 0.0109,
     'MA': 0.0123, 'MI': 0.0154, 'MN': 0.0110, 'MS': 0.0080, 'MO': 0.0097,
-    'MT': 0.0074, 'NE': 0.0173, 'NV': 0.0053, 'NH': 0.0186, 'NJ': 0.0240,
+    'MT': 0.0074, 'NE': 0.0173, 'NV': 0.0060, 'NH': 0.0186, 'NJ': 0.0240,
     'NM': 0.0080, 'NY': 0.0172, 'NC': 0.0080, 'ND': 0.0098, 'OH': 0.0157,
     'OK': 0.0090, 'OR': 0.0097, 'PA': 0.0153, 'RI': 0.0163, 'SC': 0.0057,
     'SD': 0.0128, 'TN': 0.0067, 'TX': 0.0168, 'UT': 0.0058, 'VT': 0.0190,
@@ -385,11 +403,14 @@ function getStateTaxRate(address) {
   const stateMatch = (address || "").match(/\b([A-Z]{2})\s*\d{5}\b/)
     || (address || "").match(/,\s*([A-Z]{2})\s*$/i)
     || (address || "").match(/,\s*([A-Z]{2})\b/i);
+  let taxRate = 0.0110; // national average fallback
+  let stateName = "";
   if (stateMatch) {
-    const state = stateMatch[1].toUpperCase();
-    if (stateRates[state]) return stateRates[state];
+    stateName = stateMatch[1].toUpperCase();
+    if (stateRates[stateName]) taxRate = stateRates[stateName];
   }
-  return 0.0125; // fallback national average
+  const annualTax = Math.round(price * taxRate);
+  return { monthlyTax: Math.round(annualTax / 12), annualTax, taxRate, stateName, source: 'estimated' };
 }
 
 // ─── EXTRACT HOA FROM CONTENT ─────────────────────────────────────────
@@ -919,25 +940,26 @@ if (isAddressSearch) {
 
 // ─── TABLE BUILDERS ───────────────────────────────────────────────────
 function buildMortgageTable(price, rate, address, content) {
-  const taxRate = getStateTaxRate(address || "");
+  const taxInfo = extractPropertyTax(content, price, address);
   const hoa = extractHOA(content);
   const hoaDisplay = hoa !== null ? hoa : 0;
-  const taxPct = (taxRate * 100).toFixed(2);
-
-  const stateMatch = (address || "").match(/\b([A-Z]{2})\s*\d{5}\b/) || (address || "").match(/,\s*([A-Z]{2})\b/i);
-  const stateName = stateMatch ? stateMatch[1].toUpperCase() : "";
 
   let o = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   o += `💰 **Mortgage Estimate** (Rate: ${rate}% — 30yr Fixed, via MND Daily Index)\n`;
   o += `Property Price: $${price.toLocaleString()}`;
-  if (stateName) o += ` | Tax Rate: ${taxPct}% (${stateName})`;
+  // Show tax source
+  if (taxInfo.source === 'listing') {
+    o += ` | Taxes: $${taxInfo.annualTax.toLocaleString()}/yr (from listing)`;
+  } else if (taxInfo.stateName) {
+    o += ` | Taxes: $${taxInfo.annualTax.toLocaleString()}/yr est. (${taxInfo.stateName} avg ${(taxInfo.taxRate * 100).toFixed(2)}%)`;
+  }
   if (hoa !== null) o += ` | HOA: ${hoa > 0 ? '$' + hoa + '/mo' : 'None'}`;
   else o += ` | HOA: N/A`;
   o += `\n\n`;
   o += `| Down | Down Pmt | P&I | Taxes | HOA | Total/mo |\n`;
   o += `|------|----------|-----|-------|-----|----------|\n`;
-  [0, 5, 10, 20].forEach((pct) => {
-    const m = calculateMortgage(price, rate, pct, taxRate, hoaDisplay);
+  [0, 3.5, 5, 10, 20].forEach((pct) => {
+    const m = calculateMortgage(price, rate, pct, taxInfo.monthlyTax, hoaDisplay);
     o += `| ${pct}% | $${m.downPayment.toLocaleString()} | $${m.monthlyPI.toLocaleString()} | $${m.taxes.toLocaleString()} | ${m.hoa > 0 ? '$' + m.hoa.toLocaleString() : '—'} | $${m.total.toLocaleString()} |\n`;
   });
   return o;

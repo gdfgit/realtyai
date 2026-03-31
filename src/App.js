@@ -917,7 +917,7 @@ function extractPrice(text) {
   const matches = text.match(/\$([0-9,]+(?:,\d{3})*)/g);
   if (matches) {
     const prices = matches.map(m => parseInt(m.replace(/[$,]/g, ""))).filter(p => p > 50000);
-    if (prices.length > 0) return Math.max(...prices);
+   if (prices.length > 0) return prices[0];
   }
   return null;
 }

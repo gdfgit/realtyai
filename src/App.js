@@ -1531,87 +1531,146 @@ export default function RealtyAI() {
     setCmaLoading(true);
     setCmaReport("");
     try {
-      // Step 1: Run 3 Firecrawl searches in parallel for comprehensive data
-      const [compsRes, activeRes, marketRes] = await Promise.all([
-        firecrawlSearch(`"${address}" recently sold comparable sales nearby`, {
-          limit: 5,
-          scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
-        }),
-        firecrawlSearch(`homes for sale near ${address}`, {
-          limit: 5,
-          scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
-        }),
-        firecrawlSearch(`real estate market trends ${address} 2026 median price days on market`, {
+      // Run 3 Firecrawl searches in parallel — with scrapeOptions for full data
+      const [subjectRes, compsRes, marketRes] = await Promise.all([
+        firecrawlSearch(`"${address}" property details zillow redfin`, {
           limit: 3,
           scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
         }),
+        firecrawlSearch(`recently sold homes near ${address}`, {
+          limit: 5,
+        }),
+        firecrawlSearch(`${address} real estate market trends median home price`, {
+          limit: 3,
+        }),
       ]);
 
-      // Step 2: Gather all scraped content
-      const compsContent = (compsRes.results || []).map(r => `SOURCE: ${r.url}\nTITLE: ${r.title}\n${(r.content || "").substring(0, 500)}`).join("\n\n---\n\n");
-      const activeContent = (activeRes.results || []).map(r => `SOURCE: ${r.url}\nTITLE: ${r.title}\n${(r.content || "").substring(0, 500)}`).join("\n\n---\n\n");
-      const marketContent = (marketRes.results || []).map(r => `SOURCE: ${r.url}\nTITLE: ${r.title}\n${(r.content || "").substring(0, 500)}`).join("\n\n---\n\n");
+      // ─── PARSE SUBJECT PROPERTY ─────────────────────────────────────
+      const subjectContent = (subjectRes.results || []).map(r => r.content || "").join(" ");
+      const subjectTitles = (subjectRes.results || []).map(r => r.title || "").join(" ");
+      const subjectAll = subjectContent + " " + subjectTitles;
+      
+      const subjectPrice = extractPrice(subjectAll);
+      const subjectSqft = extractSqft(subjectAll);
+      const subjectBeds = subjectAll.match(/(\d+)\s*(?:beds?|bedrooms?|br)\b/i);
+      const subjectBaths = subjectAll.match(/([\d.]+)\s*(?:baths?|bathrooms?|ba)\b/i);
+      const subjectYear = subjectAll.match(/(?:built\s*(?:in\s*)?|year\s*built\s*[:.]?\s*)(\d{4})/i);
+      const subjectType = subjectAll.match(/\b(single\s*family|condo|townhouse|townhome|multi\s*family)\b/i);
+      const subjectLot = subjectAll.match(/([\d,.]+)\s*(?:acre|sq\s*ft\s*lot)/i);
+      const subjectUrl = (subjectRes.results || []).find(r => r.url.match(/zillow|redfin|realtor\.com/i))?.url || (subjectRes.results || [])[0]?.url || "";
 
-      // Step 3: Send to Claude for synthesis
-      const systemPrompt = `You are a professional real estate CMA (Comparative Market Analysis) analyst. Generate a comprehensive CMA report for the subject property. Use ONLY data found in the provided scraped content. Do NOT make up addresses, prices, or data that isn't in the content.
-
-Format your report with these exact sections using markdown:
-
-**SUBJECT PROPERTY**
-- Address, estimated value, key specs (beds/baths/sqft/year built) from the data
-
-**COMPARABLE SALES (Recently Sold)**
-Create a markdown table with columns: Address | Sold Price | Beds | Baths | SqFt | $/SqFt | Sold Date
-Include 3-5 comparable properties that actually appear in the data.
-
-**ACTIVE LISTINGS (Competition)**
-Create a markdown table with columns: Address | Asking Price | Beds | Baths | SqFt | $/SqFt | Days on Market
-Include 2-4 active listings from the data.
-
-**MARKET TRENDS**
-- Median home price for the area
-- Average days on market
-- Price trend (up/down/stable)
-- Market type (buyer's/seller's/balanced)
-Include any statistics found in the data.
-
-**ESTIMATED VALUE RANGE**
-- Based on the comparable sales, provide a low/mid/high value estimate
-- Show the average price per sqft from comps
-- Suggested listing price range
-
-Be concise, professional, and data-driven. Use markdown tables and bold headers. If certain data points aren't available in the scraped content, note "Data not available" rather than fabricating numbers.`;
-
-      const userPrompt = `Generate a CMA report for: ${address}
-
-RECENTLY SOLD / COMPARABLE SALES DATA:
-${compsContent || "No comparable sales data found."}
-
-ACTIVE LISTINGS DATA:
-${activeContent || "No active listings data found."}
-
-MARKET TRENDS DATA:
-${marketContent || "No market trends data found."}`;
-
-      const response = await fetch("/.netlify/functions/cma-report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system: systemPrompt,
-          messages: [
-            { role: "user", content: userPrompt }
-          ],
-          max_tokens: 1000,
-        }),
+      // ─── PARSE COMPARABLE SALES ─────────────────────────────────────
+      const comps = [];
+      (compsRes.results || []).forEach(r => {
+        const text = (r.content || "") + " " + (r.title || "");
+        // Try to extract individual properties from each result
+        const price = extractPrice(text);
+        const sqft = extractSqft(text);
+        const beds = text.match(/(\d+)\s*(?:beds?|bedrooms?|br)\b/i);
+        const baths = text.match(/([\d.]+)\s*(?:baths?|bathrooms?|ba)\b/i);
+        const soldMatch = text.match(/sold\s*(?:on|:)?\s*(\w+\s+\d{1,2},?\s*\d{4}|\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+        const addrMatch = r.title.match(/\d+\s+[A-Za-z].*?(?:,|–|-|\|)/);
+        const compAddr = addrMatch ? addrMatch[0].replace(/[,–\-|]$/, '').trim() : r.title.substring(0, 60);
+        
+        if (price || beds || sqft) {
+          comps.push({
+            address: compAddr,
+            price: price ? `$${price.toLocaleString()}` : '—',
+            beds: beds ? beds[1] : '—',
+            baths: baths ? baths[1] : '—',
+            sqft: sqft ? sqft.toLocaleString() : '—',
+            ppsf: (price && sqft) ? `$${Math.round(price / sqft)}` : '—',
+            sold: soldMatch ? soldMatch[1] : '—',
+            url: r.url,
+          });
+        }
       });
 
-      const data = await response.json();
-      if (data.error) {
-        setCmaReport("Error: " + data.error + "\n\nPlease try again.");
+      // ─── PARSE MARKET DATA ──────────────────────────────────────────
+      const marketAll = (marketRes.results || []).map(r => r.content || "").join(" ");
+      const medianMatch = marketAll.match(/median\s*(?:home|list|sale)?\s*price\s*[:.]?\s*\$([\d,]+)/i)
+        || marketAll.match(/\$([\d,]+)\s*median/i);
+      const domMatch = marketAll.match(/(\d+)\s*(?:days?\s*on\s*market|DOM|average\s*days)/i);
+      const inventoryMatch = marketAll.match(/(\d[\d,]*)\s*(?:homes?\s*for\s*sale|active\s*listings|inventory)/i);
+      const trendMatch = marketAll.match(/(up|down|increased|decreased|stable|rising|falling|grew|declined)\s*(?:by\s*)?([\d.]+)?%?/i);
+
+      // ─── BUILD THE CMA REPORT ───────────────────────────────────────
+      let report = "";
+
+      // Subject Property
+      report += `📊 **SUBJECT PROPERTY**\n\n`;
+      report += `| Field | Data |\n`;
+      report += `|-------|------|\n`;
+      report += `| Address | ${address} |\n`;
+      if (subjectPrice) report += `| Price | $${subjectPrice.toLocaleString()} |\n`;
+      if (subjectBeds) report += `| Beds | ${subjectBeds[1]} |\n`;
+      if (subjectBaths) report += `| Baths | ${subjectBaths[1]} |\n`;
+      if (subjectSqft) report += `| Sq Ft | ${subjectSqft.toLocaleString()} |\n`;
+      if (subjectPrice && subjectSqft) report += `| $/SqFt | $${Math.round(subjectPrice / subjectSqft)} |\n`;
+      if (subjectYear) report += `| Year Built | ${subjectYear[1]} |\n`;
+      if (subjectType) report += `| Type | ${subjectType[1]} |\n`;
+      if (subjectLot) report += `| Lot | ${subjectLot[1]} acres |\n`;
+      if (subjectUrl) report += `\n🔗 [View Listing](${subjectUrl})\n`;
+
+      // Comparable Sales
+      report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      report += `🏘️ **COMPARABLE SALES**\n\n`;
+      if (comps.length > 0) {
+        report += `| Address | Price | Beds | Baths | SqFt | $/SqFt | Sold |\n`;
+        report += `|---------|-------|------|-------|------|--------|------|\n`;
+        comps.slice(0, 5).forEach(c => {
+          report += `| ${c.address.substring(0, 35)} | ${c.price} | ${c.beds} | ${c.baths} | ${c.sqft} | ${c.ppsf} | ${c.sold} |\n`;
+        });
       } else {
-        const reportText = (data.content || []).map(c => c.text || "").join("\n");
-        setCmaReport(reportText || "Unable to generate CMA report. Please try again.");
+        report += `No comparable sales data found. Try a more specific address.\n`;
       }
+
+      // Active Listings / Competition
+      report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      report += `🏠 **MARKET OVERVIEW**\n\n`;
+      report += `| Metric | Value |\n`;
+      report += `|--------|-------|\n`;
+      if (medianMatch) report += `| Median Home Price | $${medianMatch[1]} |\n`;
+      if (domMatch) report += `| Avg Days on Market | ${domMatch[1]} days |\n`;
+      if (inventoryMatch) report += `| Active Inventory | ${inventoryMatch[1]} homes |\n`;
+      if (trendMatch) report += `| Price Trend | ${trendMatch[1]}${trendMatch[2] ? ' ' + trendMatch[2] + '%' : ''} |\n`;
+      if (!medianMatch && !domMatch && !inventoryMatch) {
+        report += `| Market Data | Limited data available |\n`;
+      }
+
+      // Value Estimate
+      if (subjectPrice && comps.length > 0) {
+        const compPrices = comps.map(c => parseInt((c.price || "0").replace(/[$,]/g, ""))).filter(p => p > 50000);
+        if (compPrices.length > 0) {
+          const avgCompPrice = Math.round(compPrices.reduce((a, b) => a + b, 0) / compPrices.length);
+          const lowEst = Math.round(Math.min(...compPrices) * 0.95);
+          const highEst = Math.round(Math.max(...compPrices) * 1.05);
+          
+          report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+          report += `💰 **VALUE ESTIMATE**\n\n`;
+          report += `| Metric | Value |\n`;
+          report += `|--------|-------|\n`;
+          report += `| Comp Average | $${avgCompPrice.toLocaleString()} |\n`;
+          report += `| Low Estimate | $${lowEst.toLocaleString()} |\n`;
+          report += `| High Estimate | $${highEst.toLocaleString()} |\n`;
+          report += `| Subject Price | $${subjectPrice.toLocaleString()} |\n`;
+          const diff = subjectPrice - avgCompPrice;
+          const pct = ((diff / avgCompPrice) * 100).toFixed(1);
+          report += `| vs Comp Avg | ${diff > 0 ? '+' : ''}$${diff.toLocaleString()} (${diff > 0 ? '+' : ''}${pct}%) |\n`;
+        }
+      }
+
+      // Sources
+      report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      report += `📋 **Sources**\n\n`;
+      const allUrls = [...(subjectRes.results || []), ...(compsRes.results || []), ...(marketRes.results || [])];
+      const uniqueUrls = [...new Set(allUrls.map(r => r.url).filter(Boolean))];
+      uniqueUrls.slice(0, 8).forEach(url => {
+        const domain = url.match(/\/\/(?:www\.)?([^/]+)/)?.[1] || url;
+        report += `[${domain}](${url})\n`;
+      });
+
+      setCmaReport(report);
     } catch (e) {
       console.error("CMA Report error:", e);
       setCmaReport("Error generating CMA report: " + e.message + "\n\nPlease try again.");

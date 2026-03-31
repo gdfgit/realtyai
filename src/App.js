@@ -718,7 +718,7 @@ function formatText(text) {
   return html;
 }
 
-// ─── CLEAN TAVILY CONTENT ─────────────────────────────────────────────
+// ─── CLEAN CONTENT ─────────────────────────────────────────────
 function cleanContent(rawContent) {
   if (!rawContent) return "";
   let text = rawContent;
@@ -1209,11 +1209,11 @@ export default function RealtyAI() {
         fetchMortgageRate(),
       ]);
 
-      // Log Tavily response for debugging
+      // Log Firecrawl response for debugging
       if (results.error) {
-        console.error("Tavily returned error:", results.error);
+        console.error("Firecrawl returned error:", results.error);
       }
-      console.log("Tavily results count:", (results.results || []).length);
+      console.log("Firecrawl results count:", (results.results || []).length);
 
       const response = buildPropertyResponse(text, results, mortgageRate, isAddress);
 

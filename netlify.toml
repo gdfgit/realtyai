@@ -1,5 +1,5 @@
 [build]
- command = "npm install lodash@4.17.20 && npm run build"
+ command = "npm run build"
   publish = "build"
   functions = "netlify/functions"
 

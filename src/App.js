@@ -1601,7 +1601,7 @@ ${marketContent || "No market trends data found."}`;
           messages: [
             { role: "user", content: userPrompt }
           ],
-          max_tokens: 2000,
+          max_tokens: 1000,
         }),
       });
 

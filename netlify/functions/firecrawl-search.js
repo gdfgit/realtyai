@@ -26,7 +26,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Firecrawl API key not configured', data: [] }),
+      body: JSON.stringify({ success: false, error: 'Firecrawl API key not configured', data: [] }),
     };
   }
 
@@ -37,7 +37,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Missing query', data: [] }),
+        body: JSON.stringify({ success: false, error: 'Missing query', data: [] }),
       };
     }
 
@@ -48,13 +48,18 @@ exports.handler = async (event) => {
       country: country || 'us',
     };
 
-    // Add scrapeOptions if provided — this tells Firecrawl to also
-    // scrape each search result page and return full markdown content
+    // Only add scrapeOptions if explicitly requested
+    // Default: NO scraping — just search results (fast, 2-3 seconds)
+    // With scraping: slower (10-20 seconds) but gets full page content
     if (scrapeOptions) {
       requestBody.scrapeOptions = scrapeOptions;
     }
 
-    console.log('[Firecrawl] Searching:', query, '| limit:', requestBody.limit);
+    console.log('[Firecrawl] Searching:', query, '| limit:', requestBody.limit, '| scrape:', !!scrapeOptions);
+
+    // Set a timeout to avoid Netlify 504s
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000); // 20 second timeout
 
     const res = await fetch('https://api.firecrawl.dev/v2/search', {
       method: 'POST',
@@ -63,15 +68,19 @@ exports.handler = async (event) => {
         'Authorization': `Bearer ${API_KEY}`,
       },
       body: JSON.stringify(requestBody),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     if (!res.ok) {
       const errText = await res.text();
       console.error('[Firecrawl] API error:', res.status, errText);
       return {
-        statusCode: res.status,
+        statusCode: 200, // Return 200 so frontend doesn't crash
         headers,
         body: JSON.stringify({
+          success: false,
           error: `Firecrawl API error: ${res.status}`,
           details: errText,
           data: [],
@@ -82,19 +91,26 @@ exports.handler = async (event) => {
     const data = await res.json();
     console.log('[Firecrawl] Success — results:', (data.data || []).length);
 
-    // Return the Firecrawl response directly
-    // Shape: { success: true, data: [ { url, title, description, markdown, metadata, ... } ] }
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify(data),
     };
   } catch (error) {
+    // Handle timeout specifically
+    if (error.name === 'AbortError') {
+      console.error('[Firecrawl] Request timed out after 20s');
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ success: false, error: 'Search timed out — try a simpler query', data: [] }),
+      };
+    }
     console.error('[Firecrawl] Function error:', error);
     return {
-      statusCode: 500,
+      statusCode: 200,
       headers,
-      body: JSON.stringify({ error: 'Firecrawl search failed: ' + error.message, data: [] }),
+      body: JSON.stringify({ success: false, error: 'Firecrawl search failed: ' + error.message, data: [] }),
     };
   }
 };

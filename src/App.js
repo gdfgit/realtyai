@@ -1531,137 +1531,104 @@ export default function RealtyAI() {
     setCmaLoading(true);
     setCmaReport("");
     try {
-      // Strategy: Zillow listing pages contain EVERYTHING we need for a CMA:
-      // - Exact listing price, beds/baths/sqft/year/lot
-      // - Zestimate (automated valuation)
-      // - "Nearby Recently Sold Homes" with addresses, prices, specs
-      // - Tax history, price history
-      // - Neighborhood stats
-      // So we do ONE deep scrape of the Zillow page + a market data search
+      // Extract city/state/zip from address for targeted searches
+      const cityMatch = address.match(/,\s*([A-Za-z\s]+),?\s*([A-Z]{2})\s*(\d{5})?/i);
+      const city = cityMatch ? cityMatch[1].trim() : "";
+      const state = cityMatch ? cityMatch[2].trim() : "";
+      const zip = address.match(/\d{5}/)?.[0] || "";
+      const area = city && state ? `${city}, ${state}` : zip || address;
 
-      const [zillowRes, marketRes] = await Promise.all([
-        // Search 1: Find and scrape the Zillow listing page
-        firecrawlSearch(`${address} zillow`, {
+      // 4 targeted parallel searches
+      const [subjectRes, soldRes, activeRes, marketRes] = await Promise.all([
+        // 1. Subject property — scrape the Zillow/Redfin listing page
+        firecrawlSearch(`${address} zillow redfin property details`, {
           limit: 2,
           scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
         }),
-        // Search 2: Market stats for the area (fast, no scrape)
-        firecrawlSearch(`${address} real estate market statistics median price days on market 2026`, {
+        // 2. Recently SOLD homes nearby — these are the comps
+        firecrawlSearch(`recently sold homes ${area} ${zip} site:zillow.com OR site:redfin.com`, {
           limit: 5,
+          scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
+        }),
+        // 3. Active listings nearby — competition
+        firecrawlSearch(`homes for sale ${area} ${zip} site:zillow.com OR site:redfin.com`, {
+          limit: 5,
+          scrapeOptions: { formats: ["markdown"], onlyMainContent: true },
+        }),
+        // 4. Market stats (fast, no scrape)
+        firecrawlSearch(`${area} ${zip} housing market statistics median home price days on market 2026`, {
+          limit: 3,
         }),
       ]);
 
-      // ─── GET THE ZILLOW/REDFIN PAGE CONTENT ──────────────────────────
-      const allResults = zillowRes.results || [];
-      // Prefer Zillow, then Redfin, then Realtor.com, then any
-      const bestResult = allResults.find(r => r.url?.includes('zillow.com'))
-        || allResults.find(r => r.url?.includes('redfin.com'))
-        || allResults.find(r => r.url?.includes('realtor.com'))
-        || allResults[0];
-
-      const pageContent = bestResult?.content || "";
-      const pageTitle = bestResult?.title || "";
-      const pageUrl = bestResult?.url || "";
-      const fullText = pageContent + " " + pageTitle;
-
-      // Also combine all results for broader data
-      const allContent = allResults.map(r => (r.content || "") + " " + (r.title || "")).join(" ");
-
       // ─── PARSE SUBJECT PROPERTY ──────────────────────────────────────
-      const subjectPrice = extractPrice(allContent);
-      const subjectSqft = extractSqft(allContent);
-      const subjectBeds = allContent.match(/(\d+)\s*(?:beds?|bedrooms?|br|bd)\b/i);
-      const subjectBaths = allContent.match(/([\d.]+)\s*(?:baths?|bathrooms?|ba)\b/i);
-      const subjectYear = allContent.match(/(?:built\s*(?:in\s*)?|year\s*built\s*[:.]?\s*)(\d{4})/i);
-      const subjectType = allContent.match(/\b(Single Family|Condo|Townhouse|Townhome|Multi Family|Duplex|Manufactured|Co-op)\b/i);
-      const subjectLot = allContent.match(/([\d,.]+)\s*(?:acres?|sq\s*ft\s*lot|lot\s*(?:size|area))/i);
-      const subjectHoa = allContent.match(/HOA\s*[:.]?\s*\$([\d,]+)/i);
-
-      // Zestimate / estimated value
-      const zestMatch = allContent.match(/Zestimate[^$]*\$([\d,]+)/i)
-        || allContent.match(/estimated?\s*(?:value|price)[^$]*\$([\d,]+)/i)
-        || allContent.match(/Redfin\s*Estimate[^$]*\$([\d,]+)/i);
+      const subjectAll = (subjectRes.results || []).map(r => (r.content || "") + " " + (r.title || "")).join(" ");
+      const subjectPrice = extractPrice(subjectAll);
+      const subjectSqft = extractSqft(subjectAll);
+      const subjectBeds = subjectAll.match(/(\d+)\s*(?:beds?|bedrooms?|bd|br)\b/i);
+      const subjectBaths = subjectAll.match(/([\d.]+)\s*(?:baths?|bathrooms?|ba)\b/i);
+      const subjectYear = subjectAll.match(/(?:built\s*(?:in\s*)?|year\s*built\s*[:.]?\s*)(\d{4})/i);
+      const subjectType = subjectAll.match(/\b(Single Family|Condo|Townhouse|Townhome|Multi Family|Duplex)\b/i);
+      const subjectLot = subjectAll.match(/([\d,.]+)\s*(?:acres?|sqft?\s*lot|lot\s*size)/i);
+      const zestMatch = subjectAll.match(/Zestimate[^$]*?\$([\d,]+)/i) || subjectAll.match(/Redfin\s*Estimate[^$]*?\$([\d,]+)/i);
       const zestimate = zestMatch ? parseInt(zestMatch[1].replace(/,/g, '')) : null;
+      const subjectUrl = (subjectRes.results || []).find(r => r.url?.match(/zillow|redfin/i))?.url || "";
 
-      // Tax assessed value
-      const taxAssessMatch = allContent.match(/(?:tax|assessed)\s*(?:value|assessment)[^$]*\$([\d,]+)/i);
-      const taxAssessed = taxAssessMatch ? parseInt(taxAssessMatch[1].replace(/,/g, '')) : null;
+      // ─── PARSE SOLD COMPS ────────────────────────────────────────────
+      const parseProperties = (results) => {
+        const props = [];
+        (results || []).forEach(r => {
+          const text = (r.content || "") + " " + (r.title || "");
+          // Each search result is typically one property listing
+          const price = extractPrice(text);
+          const sqft = extractSqft(text);
+          const beds = text.match(/(\d+)\s*(?:beds?|bedrooms?|bd|br)\b/i);
+          const baths = text.match(/([\d.]+)\s*(?:baths?|bathrooms?|ba)\b/i);
+          // Extract address from title (Zillow/Redfin titles contain the address)
+          const titleAddr = (r.title || "").split(/\s*[|\-–—]\s*/)[0].trim();
+          const soldDate = text.match(/(?:sold|closed)\s*(?:on|:)?\s*(\w+\s+\d{1,2},?\s*\d{4}|\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+          const dom = text.match(/(\d+)\s*days?\s*on\s*(?:Zillow|Redfin|market)/i);
 
-      // ─── PARSE COMPARABLE SALES FROM PAGE ────────────────────────────
-      // Zillow pages contain "Nearby Recently Sold Homes" sections
-      // Redfin pages contain "Comparable Sales" sections
-      // These appear as repeated patterns: address + price + beds + baths + sqft
-      const comps = [];
+          if (price && price > 50000 && price !== subjectPrice) {
+            props.push({
+              address: titleAddr.substring(0, 40) || 'Nearby Property',
+              price,
+              priceStr: `$${price.toLocaleString()}`,
+              beds: beds ? beds[1] : '—',
+              baths: baths ? baths[1] : '—',
+              sqft: sqft || 0,
+              sqftStr: sqft ? sqft.toLocaleString() : '—',
+              ppsf: (price && sqft) ? Math.round(price / sqft) : 0,
+              ppsfStr: (price && sqft) ? `$${Math.round(price / sqft)}` : '—',
+              sold: soldDate ? soldDate[1] : '',
+              dom: dom ? dom[1] : '',
+              url: r.url || '',
+            });
+          }
+        });
+        return props;
+      };
 
-      // Strategy: find price patterns and try to extract property info around each
-      // Look for patterns like "$XXX,XXX ... X bd X ba X,XXX sqft" or similar listing cards
-      const compPatterns = allContent.match(/\$[\d,]+[^$]{5,200}?(?:\d+\s*(?:bd|bed|br))/gi) || [];
-      
-      compPatterns.forEach(block => {
-        const price = extractPrice(block);
-        const beds = block.match(/(\d+)\s*(?:bd|beds?|br)\b/i);
-        const baths = block.match(/([\d.]+)\s*(?:ba|baths?)\b/i);
-        const sqft = extractSqft(block);
-        const addrMatch = block.match(/\d+\s+[A-Za-z][A-Za-z\s]+(?:St|Ave|Dr|Ln|Rd|Ct|Way|Pl|Blvd|Cir|Pkwy)/i);
-        const soldMatch = block.match(/(?:sold|closed)\s*(?:on)?\s*(\d{1,2}\/\d{1,2}\/\d{2,4}|\w+\s+\d{1,2},?\s*\d{4})/i);
-
-        // Don't include the subject property itself as a comp
-        if (price && price !== subjectPrice && beds) {
-          comps.push({
-            address: addrMatch ? addrMatch[0].trim() : 'Nearby Property',
-            price: `$${price.toLocaleString()}`,
-            beds: beds ? beds[1] : '—',
-            baths: baths ? baths[1] : '—',
-            sqft: sqft ? sqft.toLocaleString() : '—',
-            ppsf: (price && sqft) ? `$${Math.round(price / sqft)}` : '—',
-            sold: soldMatch ? soldMatch[1] : '—',
-          });
-        }
-      });
-
-      // Also try to get comps from the market search results
-      (marketRes.results || []).forEach(r => {
-        const text = (r.content || "") + " " + (r.title || "");
-        const price = extractPrice(text);
-        const beds = text.match(/(\d+)\s*(?:beds?|bedrooms?|bd|br)\b/i);
-        const baths = text.match(/([\d.]+)\s*(?:baths?|bathrooms?|ba)\b/i);
-        const sqft = extractSqft(text);
-        const addrMatch = r.title.match(/\d+\s+[A-Za-z].*?(?:,|–|-|\||$)/);
-        const compAddr = addrMatch ? addrMatch[0].replace(/[,–\-|]$/, '').trim() : '';
-
-        if (price && price !== subjectPrice && (beds || sqft) && compAddr) {
-          comps.push({
-            address: compAddr.substring(0, 40),
-            price: `$${price.toLocaleString()}`,
-            beds: beds ? beds[1] : '—',
-            baths: baths ? baths[1] : '—',
-            sqft: sqft ? sqft.toLocaleString() : '—',
-            ppsf: (price && sqft) ? `$${Math.round(price / sqft)}` : '—',
-            sold: '—',
-          });
-        }
-      });
-
-      // Deduplicate comps by price (rough dedup)
-      const uniqueComps = [];
-      const seenPrices = new Set();
-      comps.forEach(c => {
-        if (!seenPrices.has(c.price)) {
-          seenPrices.add(c.price);
-          uniqueComps.push(c);
-        }
-      });
+      const soldComps = parseProperties(soldRes.results);
+      const activeListings = parseProperties(activeRes.results);
 
       // ─── PARSE MARKET DATA ───────────────────────────────────────────
-      const marketAll = (marketRes.results || []).map(r => r.content || "").join(" ") + " " + allContent;
+      const marketAll = (marketRes.results || []).map(r => (r.content || "") + " " + (r.title || "")).join(" ");
       const medianMatch = marketAll.match(/median\s*(?:home|list|sale|sold?)?\s*price\s*[:.]?\s*\$([\d,]+)/i)
-        || marketAll.match(/median\s*(?:price|value)\s*[:.]?\s*\$([\d,]+)/i)
         || marketAll.match(/\$([\d,]+)\s*median/i);
-      const domMatch = marketAll.match(/(?:average|median)?\s*(\d+)\s*(?:days?\s*on\s*market|DOM)/i)
-        || marketAll.match(/(?:days?\s*on\s*market|DOM)\s*[:.]?\s*(\d+)/i);
-      const inventoryMatch = marketAll.match(/([\d,]+)\s*(?:homes?\s*(?:for\s*sale|listed|available)|active\s*listings|listings?\s*available)/i);
+      const domMatch = marketAll.match(/(?:average|median)?\s*(\d+)\s*days?\s*(?:on\s*market|DOM)/i);
+      const inventoryMatch = marketAll.match(/([\d,]+)\s*(?:homes?\s*(?:for\s*sale|listed|available)|active\s*listings)/i);
       const trendMatch = marketAll.match(/(?:prices?\s*(?:have\s*)?)(increased|decreased|risen|fallen|grew|dropped|up|down|stable|rising|falling)\s*(?:by\s*)?([\d.]+)?%?/i);
-      const listToSaleMatch = marketAll.match(/(?:sale-to-list|list-to-sale|sale.to.list)\s*[:.]?\s*([\d.]+)%/i);
+
+      // ─── CALCULATE ESTIMATED VALUE ───────────────────────────────────
+      const allCompPrices = soldComps.map(c => c.price).filter(p => p > 50000);
+      const allCompPpsf = soldComps.map(c => c.ppsf).filter(p => p > 0);
+      const avgCompPrice = allCompPrices.length > 0 ? Math.round(allCompPrices.reduce((a, b) => a + b, 0) / allCompPrices.length) : null;
+      const avgCompPpsf = allCompPpsf.length > 0 ? Math.round(allCompPpsf.reduce((a, b) => a + b, 0) / allCompPpsf.length) : null;
+      const estimatedValue = avgCompPpsf && subjectSqft ? avgCompPpsf * subjectSqft
+        : avgCompPrice ? avgCompPrice
+        : zestimate ? zestimate
+        : subjectPrice;
 
       // ─── BUILD THE CMA REPORT ────────────────────────────────────────
       let report = "";
@@ -1672,8 +1639,6 @@ export default function RealtyAI() {
       report += `|-------|------|\n`;
       report += `| Address | ${address} |\n`;
       if (subjectPrice) report += `| List Price | $${subjectPrice.toLocaleString()} |\n`;
-      if (zestimate) report += `| Zestimate | $${zestimate.toLocaleString()} |\n`;
-      if (taxAssessed) report += `| Tax Assessed | $${taxAssessed.toLocaleString()} |\n`;
       if (subjectBeds) report += `| Beds | ${subjectBeds[1]} |\n`;
       if (subjectBaths) report += `| Baths | ${subjectBaths[1]} |\n`;
       if (subjectSqft) report += `| Sq Ft | ${subjectSqft.toLocaleString()} |\n`;
@@ -1681,87 +1646,76 @@ export default function RealtyAI() {
       if (subjectYear) report += `| Year Built | ${subjectYear[1]} |\n`;
       if (subjectType) report += `| Type | ${subjectType[1]} |\n`;
       if (subjectLot) report += `| Lot | ${subjectLot[0]} |\n`;
-      if (subjectHoa) report += `| HOA | $${subjectHoa[1]}/mo |\n`;
-      if (pageUrl) report += `\n🔗 [View Full Listing](${pageUrl})\n`;
+      if (subjectUrl) report += `\n🔗 [View Full Listing](${subjectUrl})\n`;
 
-      // Comparable Sales
+      // Recent Sales (Comps)
       report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-      report += `🏘️ **COMPARABLE SALES**\n\n`;
-      if (uniqueComps.length > 0) {
-        report += `| Address | Price | Beds | Baths | SqFt | $/SqFt |\n`;
-        report += `|---------|-------|------|-------|------|--------|\n`;
-        uniqueComps.slice(0, 6).forEach(c => {
-          report += `| ${c.address.substring(0, 35)} | ${c.price} | ${c.beds} | ${c.baths} | ${c.sqft} | ${c.ppsf} |\n`;
+      report += `🏘️ **RECENT SALES (Comparables)**\n\n`;
+      if (soldComps.length > 0) {
+        report += `| Address | Sold Price | Beds | Baths | SqFt | $/SqFt |\n`;
+        report += `|---------|-----------|------|-------|------|--------|\n`;
+        soldComps.slice(0, 6).forEach(c => {
+          report += `| ${c.address} | ${c.priceStr} | ${c.beds} | ${c.baths} | ${c.sqftStr} | ${c.ppsfStr} |\n`;
+        });
+        if (avgCompPrice) report += `\n**Comp Average: $${avgCompPrice.toLocaleString()}**`;
+        if (avgCompPpsf) report += ` **| Avg $/SqFt: $${avgCompPpsf}**`;
+        report += `\n`;
+      } else {
+        report += `No recent sales found for ${area}. The search may need a broader area.\n`;
+      }
+
+      // Active Listings
+      report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      report += `🏠 **ACTIVE LISTINGS (Competition)**\n\n`;
+      if (activeListings.length > 0) {
+        report += `| Address | Asking Price | Beds | Baths | SqFt | $/SqFt |\n`;
+        report += `|---------|-------------|------|-------|------|--------|\n`;
+        activeListings.slice(0, 5).forEach(c => {
+          report += `| ${c.address} | ${c.priceStr} | ${c.beds} | ${c.baths} | ${c.sqftStr} | ${c.ppsfStr} |\n`;
         });
       } else {
-        report += `Comparable sales data not available from scraped sources.\n`;
-        report += `Try searching on [Zillow](https://www.zillow.com/homes/${encodeURIComponent(address)}) or [Redfin](https://www.redfin.com/search?q=${encodeURIComponent(address)}) directly.\n`;
+        report += `No active listings found near ${area}.\n`;
       }
 
       // Market Overview
       report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-      report += `📈 **MARKET OVERVIEW**\n\n`;
+      report += `📈 **MARKET OVERVIEW — ${area}**\n\n`;
       report += `| Metric | Value |\n`;
       report += `|--------|-------|\n`;
       if (medianMatch) report += `| Median Home Price | $${medianMatch[1]} |\n`;
       if (domMatch) report += `| Avg Days on Market | ${domMatch[1]} days |\n`;
-      if (inventoryMatch) report += `| Active Listings | ${inventoryMatch[1]} |\n`;
+      if (inventoryMatch) report += `| Active Inventory | ${inventoryMatch[1]} homes |\n`;
       if (trendMatch) report += `| Price Trend | ${trendMatch[1]}${trendMatch[2] ? ' ' + trendMatch[2] + '%' : ''} |\n`;
-      if (listToSaleMatch) report += `| Sale-to-List Ratio | ${listToSaleMatch[1]}% |\n`;
-      if (!medianMatch && !domMatch && !inventoryMatch && !trendMatch) {
-        report += `| Market Data | Search for [${address.split(',')[1]?.trim() || 'area'} market trends](https://www.zillow.com/home-values/) |\n`;
+      if (soldComps.length > 0) report += `| Comps Analyzed | ${soldComps.length} properties |\n`;
+      if (!medianMatch && !domMatch && !inventoryMatch && !trendMatch && soldComps.length === 0) {
+        report += `| Data | Limited market data for this area |\n`;
       }
 
-      // Value Estimate
+      // Estimated Value
       report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-      report += `💰 **VALUE ESTIMATE**\n\n`;
+      report += `💰 **ESTIMATED VALUE**\n\n`;
       report += `| Metric | Value |\n`;
       report += `|--------|-------|\n`;
-      if (subjectPrice) report += `| List Price | $${subjectPrice.toLocaleString()} |\n`;
+      if (estimatedValue) {
+        const lowEst = Math.round(estimatedValue * 0.95);
+        const highEst = Math.round(estimatedValue * 1.05);
+        report += `| **Estimated Value** | **$${estimatedValue.toLocaleString()}** |\n`;
+        report += `| Value Range | $${lowEst.toLocaleString()} — $${highEst.toLocaleString()} |\n`;
+      }
       if (zestimate) report += `| Zestimate | $${zestimate.toLocaleString()} |\n`;
-      if (taxAssessed) report += `| Tax Assessed | $${taxAssessed.toLocaleString()} |\n`;
-
-      // Calculate comp-based estimate
-      const compPrices = uniqueComps.map(c => parseInt((c.price || "0").replace(/[$,]/g, ""))).filter(p => p > 50000);
-      if (compPrices.length > 0) {
-        const avgCompPrice = Math.round(compPrices.reduce((a, b) => a + b, 0) / compPrices.length);
-        const lowEst = Math.round(Math.min(...compPrices) * 0.95);
-        const highEst = Math.round(Math.max(...compPrices) * 1.05);
-        report += `| Comp Average | $${avgCompPrice.toLocaleString()} |\n`;
-        report += `| Estimated Range | $${lowEst.toLocaleString()} — $${highEst.toLocaleString()} |\n`;
-        if (subjectPrice) {
-          const diff = subjectPrice - avgCompPrice;
-          const pct = ((diff / avgCompPrice) * 100).toFixed(1);
-          report += `| vs Comp Avg | ${diff > 0 ? '+' : ''}$${diff.toLocaleString()} (${diff > 0 ? '+' : ''}${pct}%) |\n`;
+      if (avgCompPrice) report += `| Comp Average | $${avgCompPrice.toLocaleString()} |\n`;
+      if (avgCompPpsf && subjectSqft) report += `| Value at Avg $/SqFt | $${(avgCompPpsf * subjectSqft).toLocaleString()} |\n`;
+      if (subjectPrice && estimatedValue) {
+        const diff = subjectPrice - estimatedValue;
+        const pct = ((diff / estimatedValue) * 100).toFixed(1);
+        if (diff > 0) {
+          report += `| List vs Estimate | +$${diff.toLocaleString()} (+${pct}%) — **Over estimated value** |\n`;
+        } else if (diff < 0) {
+          report += `| List vs Estimate | -$${Math.abs(diff).toLocaleString()} (${pct}%) — **Under estimated value** |\n`;
+        } else {
+          report += `| List vs Estimate | At estimated value |\n`;
         }
       }
-
-      // Comp-based $/sqft
-      const compPpsfs = uniqueComps.map(c => parseInt((c.ppsf || "0").replace(/[$,]/g, ""))).filter(p => p > 0);
-      if (compPpsfs.length > 0) {
-        const avgPpsf = Math.round(compPpsfs.reduce((a, b) => a + b, 0) / compPpsfs.length);
-        report += `| Avg Comp $/SqFt | $${avgPpsf} |\n`;
-        if (subjectSqft) {
-          report += `| Value at Comp $/SqFt | $${(avgPpsf * subjectSqft).toLocaleString()} |\n`;
-        }
-      }
-
-      if (!subjectPrice && !zestimate && compPrices.length === 0) {
-        report += `| Estimate | Insufficient data — try a more specific address |\n`;
-      }
-
-      // Sources
-      report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-      report += `📋 **Sources**\n\n`;
-      const allUrls = [...allResults, ...(marketRes.results || [])];
-      const seen = new Set();
-      allUrls.forEach(r => {
-        if (r.url && !seen.has(r.url)) {
-          seen.add(r.url);
-          const domain = r.url.match(/\/\/(?:www\.)?([^/]+)/)?.[1] || r.url;
-          report += `[${domain}](${r.url})\n`;
-        }
-      });
 
       setCmaReport(report);
     } catch (e) {

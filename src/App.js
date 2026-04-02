@@ -1538,7 +1538,7 @@ export default function RealtyAI() {
       const state = cityMatch ? cityMatch[2].trim() : "";
       const zip = address.match(/\d{5}/)?.[0] || "";
       const area = city && state ? `${city}, ${state}` : zip || address;
-    }
+    
       // ─── TRY RPR AGENT FIRST (MLS-quality data) ──────────────────────
       try {
         console.log("[CMA] Starting RPR agent...");

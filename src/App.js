@@ -1534,15 +1534,16 @@ export default function RealtyAI() {
     setCmaReport("");
     try {
       const cityMatch = address.match(/,\s*([A-Za-z\s]+),?\s*([A-Z]{2})\s*(\d{5})?/i);
-      const city = cityMatch ? cityMatch[1].trim() : "";
-      const state = cityMatch ? cityMatch[2].trim() : "";
-      const zip = address.match(/\d{5}/)?.[0] || "";
-      const area = city && state ? `${city}, ${state}` : zip || address;
-      } catch (error) {
+       } catch (error) {
   console.error("Failed to parse address:", error);
   setCmaError("Unable to parse the provided address.");
   setCmaLoading(false);
 }
+      const city = cityMatch ? cityMatch[1].trim() : "";
+      const state = cityMatch ? cityMatch[2].trim() : "";
+      const zip = address.match(/\d{5}/)?.[0] || "";
+      const area = city && state ? `${city}, ${state}` : zip || address;
+     
     
       // ─── TRY RPR AGENT FIRST (MLS-quality data) ──────────────────────
       try {

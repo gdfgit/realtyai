@@ -1529,7 +1529,7 @@ export default function RealtyAI() {
   }, [showAmenityPanel]);
 
   // *** CMA REPORT: Generate function ***
-  const generateCMAReport = async (address) => {
+  const generateCMAReport = async (address, rprUrl) => {
     setCmaLoading(true);
     setCmaReport("");
     try {
@@ -1538,6 +1538,187 @@ export default function RealtyAI() {
       const state = cityMatch ? cityMatch[2].trim() : "";
       const zip = address.match(/\d{5}/)?.[0] || "";
       const area = city && state ? `${city}, ${state}` : zip || address;
+
+      // ─── RPR PDF LINK (MLS-quality data) ──────────────────────────────
+      if (rprUrl && rprUrl.includes('narrpr.com/reports-v2/')) {
+        console.log("[CMA] Fetching RPR PDF:", rprUrl);
+        try {
+          // Ensure URL ends with /pdf
+          let pdfUrl = rprUrl.trim();
+          if (!pdfUrl.endsWith('/pdf')) pdfUrl += '/pdf';
+
+          const rprRes = await fetch("/.netlify/functions/rpr-cma", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "fetch-pdf", reportUrl: pdfUrl }),
+          });
+          const rprJson = await rprRes.json();
+
+          if (rprJson.success && rprJson.content && rprJson.content.length > 500) {
+            const raw = rprJson.content;
+            console.log("[CMA] RPR PDF content:", raw.length, "chars");
+
+            // Parse RPR PDF — structured data extraction
+            const rprAddress = raw.match(/(?:CMA Report|Property Report)\s*\n\s*([^\n,]+(?:,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s*\d{5}))/i);
+            const listPriceMatch = raw.match(/List\s*Price\s*\n?\s*\$([\d,]+)/i);
+            const rvmMatch = raw.match(/RVM[®®]?\s*\n?\s*\$([\d,]+)/i);
+            const cmaValueMatch = raw.match(/CMA\s*Value\s*\n?\s*\$([\d,]+)/i);
+            const bedsMatch = raw.match(/(\d+)\s*Beds/i);
+            const bathsMatch = raw.match(/([\d.]+)\s*Baths/i);
+            const sqftMatch = raw.match(/([\d,]+)\s*Sq\s*Ft/i);
+            const lotMatch = raw.match(/([\d,]+)\s*Sq\s*Ft\s*$/im) || raw.match(/Lot\s*Size\s*([\d,]+)/i);
+            const yearMatch = raw.match(/Year\s*Built\s*\n?\s*(\d{4})/i);
+            const typeMatch = raw.match(/(?:Property\s*)?Type\s*\n?\s*(Single Family|Condo|Townhouse|Multi Family)/i);
+            const taxMatch = raw.match(/Total\s*Tax\s*Amount\s*\$([\d,]+)/i);
+            const hoaMatch = raw.match(/HOA\s*Dues?\s*\n?\s*\$([\d,]+)/i);
+            const ppsftMatch = raw.match(/Price\s*(?:by|per)\s*SqFt\s*\n?\s*\$([\d,]+)/i);
+
+            const listPrice = listPriceMatch ? parseInt(listPriceMatch[1].replace(/,/g, '')) : null;
+            const rvmValue = rvmMatch ? parseInt(rvmMatch[1].replace(/,/g, '')) : null;
+            const cmaValue = cmaValueMatch ? parseInt(cmaValueMatch[1].replace(/,/g, '')) : null;
+            const beds = bedsMatch ? parseInt(bedsMatch[1]) : null;
+            const baths = bathsMatch ? parseFloat(bathsMatch[1]) : null;
+            const sqft = sqftMatch ? parseInt(sqftMatch[1].replace(/,/g, '')) : null;
+            const yearBuilt = yearMatch ? yearMatch[1] : null;
+            const propType = typeMatch ? typeMatch[1] : null;
+            const annualTax = taxMatch ? parseInt(taxMatch[1].replace(/,/g, '')) : null;
+            const hoa = hoaMatch ? parseInt(hoaMatch[1].replace(/,/g, '')) : null;
+            const ppsft = ppsftMatch ? parseInt(ppsftMatch[1].replace(/,/g, '')) : null;
+
+            // Parse comps from RPR PDF — multiple sections
+            const rprComps = [];
+            // RPR comp pattern: number + address on same line, or address followed by price
+            const compRegex = /(?:Closed|Pending|Active)\s*(?:\/\s*For Sale)?\s*.*?\n.*?(\d+\s+[A-Za-z][A-Za-z\s]*(?:St|Ave|Dr|Ln|Rd|Ct|Way|Pl|Blvd|Cir|Pkwy|Ter|Loop|Mesa)[^,\n]*),?\s*\n?[^$]*?\$([\d,]+)/gi;
+            let compMatch;
+            while ((compMatch = compRegex.exec(raw)) !== null) {
+              const compAddr = compMatch[1].trim().substring(0, 45);
+              const compPrice = parseInt(compMatch[2].replace(/,/g, ''));
+              if (compPrice > 50000 && compPrice !== listPrice && !rprComps.find(c => c.address === compAddr)) {
+                rprComps.push({ address: compAddr, price: compPrice });
+              }
+            }
+
+            // Also try the table format: "address\nprice\nbeds\nbaths\nsqft"
+            const tableRows = raw.match(/\d+\s+[A-Za-z][^\n]+\n[^\n]*(?:San Diego|Las Vegas|Henderson|Los Angeles)[^\n]*\n/gi) || [];
+            tableRows.forEach(block => {
+              const addr = block.match(/(\d+\s+[A-Za-z][A-Za-z\s]*(?:St|Ave|Dr|Ln|Rd|Ct|Way|Pl|Blvd|Cir|Pkwy|Ter|Loop|Mesa)[^,\n]*)/i);
+              const price = block.match(/\$([\d,]+)/);
+              if (addr && price) {
+                const a = addr[1].trim().substring(0, 45);
+                const p = parseInt(price[1].replace(/,/g, ''));
+                if (p > 50000 && p !== listPrice && !rprComps.find(c => c.address === a)) {
+                  rprComps.push({ address: a, price: p });
+                }
+              }
+            });
+
+            // Simpler: find ALL $X,XXX,XXX patterns near addresses in the comp sections
+            const compSections = raw.split(/(?:Comp Property|Comparable|Recently Closed|Pricing Summary)/i);
+            compSections.forEach(section => {
+              const lines = section.split('\n');
+              for (let i = 0; i < lines.length; i++) {
+                const addrLine = lines[i].match(/(\d+\s+[A-Za-z][A-Za-z\s]*(?:St|Ave|Dr|Ln|Rd|Ct|Way|Pl|Blvd|Cir|Pkwy|Ter|Loop|Mesa|Mountain|Valley|Creek|Stone|Rose|Glow|Forest|Canyon|Bee|Pinion|Spruce|Evergreen|Cotton|Silver|Evening|Palomino)[^,\n]*)/i);
+                if (addrLine) {
+                  // Look in nearby lines for price
+                  const nearbyText = lines.slice(Math.max(0, i-2), i+5).join(' ');
+                  const priceMatch = nearbyText.match(/\$([\d,]+(?:,\d{3})+)/);
+                  const bedsM = nearbyText.match(/(\d+)\s*(?:\/\s*\d|beds?|bd|br)/i);
+                  const bathsM = nearbyText.match(/\d+\s*\/\s*(\d+)/);
+                  const sqftM = nearbyText.match(/([\d,]+)\s*(?:sq\s*ft|sqft)/i);
+                  const ppsfM = nearbyText.match(/\$(\d+)\s*$/m) || nearbyText.match(/\$(\d{3})\b/);
+                  if (priceMatch) {
+                    const a = addrLine[1].trim().substring(0, 45);
+                    const p = parseInt(priceMatch[1].replace(/,/g, ''));
+                    if (p > 100000 && p !== listPrice && !rprComps.find(c => c.address === a)) {
+                      rprComps.push({
+                        address: a, price: p,
+                        beds: bedsM ? parseInt(bedsM[1]) : null,
+                        baths: bathsM ? parseInt(bathsM[1]) : null,
+                        sqft: sqftM ? parseInt(sqftM[1].replace(/,/g, '')) : null,
+                        ppsf: ppsfM ? parseInt(ppsfM[1]) : null,
+                      });
+                    }
+                  }
+                }
+              }
+            });
+
+            // Parse market data from RPR PDF
+            const medianSoldMatch = raw.match(/Median\s*Sold\s*Price\s*\n?\s*\$([\d,]+)/i);
+            const medianListMatch = raw.match(/Median\s*List\s*Price\s*[^$]*\$([\d,]+)/i);
+            const domMatch = raw.match(/Median\s*Days\s*(?:in RPR|on Market)\s*[^\d]*(\d+)/i);
+            const soldToListMatch = raw.match(/Sold\s*to\s*List\s*(?:Price\s*)?%?\s*[^\d]*([\d.]+)%/i);
+            const inventoryMatch = raw.match(/Months?\s*of\s*Inventory\s*\n?\s*([\d.]+)/i);
+
+            // Build RPR report
+            const displayAddr = rprAddress ? rprAddress[1].trim() : address;
+            let report = `🔒 **Data Source: RPR (Realtors Property Resource) — MLS Data**\n\n`;
+
+            report += `📊 **SUBJECT PROPERTY**\n\n`;
+            report += `| Field | Data |\n|-------|------|\n`;
+            report += `| Address | ${displayAddr} |\n`;
+            if (listPrice) report += `| List Price | $${listPrice.toLocaleString()} |\n`;
+            if (rvmValue) report += `| RPR Value (RVM) | $${rvmValue.toLocaleString()} |\n`;
+            if (cmaValue) report += `| CMA Value | $${cmaValue.toLocaleString()} |\n`;
+            if (beds) report += `| Beds | ${beds} |\n`;
+            if (baths) report += `| Baths | ${baths} |\n`;
+            if (sqft) report += `| Sq Ft | ${sqft.toLocaleString()} |\n`;
+            if (ppsft) report += `| $/SqFt | $${ppsft} |\n`;
+            if (yearBuilt) report += `| Year Built | ${yearBuilt} |\n`;
+            if (propType) report += `| Type | ${propType} |\n`;
+            if (annualTax) report += `| Annual Tax | $${annualTax.toLocaleString()} |\n`;
+            if (hoa) report += `| HOA | $${hoa}/mo |\n`;
+
+            // Comps
+            report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+            report += `🏘️ **COMPARABLE PROPERTIES (RPR)**\n\n`;
+            if (rprComps.length > 0) {
+              report += `| Address | Price | Beds | Baths | SqFt | $/SqFt |\n`;
+              report += `|---------|-------|------|-------|------|--------|\n`;
+              rprComps.slice(0, 8).forEach(c => {
+                const cppsf = (c.price && c.sqft) ? `$${Math.round(c.price / c.sqft)}` : (c.ppsf ? `$${c.ppsf}` : '—');
+                report += `| ${c.address} | $${c.price.toLocaleString()} | ${c.beds || '—'} | ${c.baths || '—'} | ${c.sqft ? c.sqft.toLocaleString() : '—'} | ${cppsf} |\n`;
+              });
+              const avgComp = Math.round(rprComps.reduce((a, c) => a + c.price, 0) / rprComps.length);
+              report += `\n**Comp Average: $${avgComp.toLocaleString()}** | ${rprComps.length} properties\n`;
+            } else {
+              report += `Comp data available in full RPR report.\n`;
+            }
+
+            // Market
+            report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+            report += `📈 **MARKET OVERVIEW**\n\n`;
+            report += `| Metric | Value |\n|--------|-------|\n`;
+            if (medianSoldMatch) report += `| Median Sold Price | $${medianSoldMatch[1]} |\n`;
+            if (medianListMatch) report += `| Median List Price | $${medianListMatch[1]} |\n`;
+            if (domMatch) report += `| Median Days on Market | ${domMatch[1]} days |\n`;
+            if (soldToListMatch) report += `| Sold-to-List Ratio | ${soldToListMatch[1]}% |\n`;
+            if (inventoryMatch) report += `| Months of Inventory | ${inventoryMatch[1]} |\n`;
+
+            // Estimated Value
+            const estValue = cmaValue || rvmValue || listPrice;
+            report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+            report += `💰 **ESTIMATED VALUE**\n\n`;
+            report += `| Metric | Value |\n|--------|-------|\n`;
+            if (estValue) report += `| **Estimated Value** | **$${estValue.toLocaleString()}** |\n`;
+            if (cmaValue) report += `| CMA Value | $${cmaValue.toLocaleString()} |\n`;
+            if (rvmValue) report += `| RPR Value (RVM) | $${rvmValue.toLocaleString()} |\n`;
+            if (estValue) report += `| Value Range | $${Math.round(estValue * 0.95).toLocaleString()} — $${Math.round(estValue * 1.05).toLocaleString()} |\n`;
+            if (listPrice && estValue && listPrice !== estValue) {
+              const diff = listPrice - estValue;
+              const pct = ((diff / estValue) * 100).toFixed(1);
+              if (diff > 0) report += `| List vs Estimate | +$${diff.toLocaleString()} (+${pct}%) — **Over estimated value** |\n`;
+              else report += `| List vs Estimate | -$${Math.abs(diff).toLocaleString()} (${pct}%) — **Under estimated value** |\n`;
+            }
+
+            setCmaReport(report);
+            setCmaLoading(false);
+            return;
+          }
+        } catch (rprErr) {
+          console.error("[CMA] RPR PDF fetch error:", rprErr.message);
+        }
+      }
      
     
       // ─── TRY RPR AGENT FIRST (MLS-quality data) ──────────────────────
@@ -2672,33 +2853,58 @@ export default function RealtyAI() {
             {/* Address Input */}
             <div style={{
               padding: '16px 20px', borderBottom: '1px solid #f0f0f0',
-              display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0,
+              display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0,
             }}>
-              <input
-                value={cmaAddress}
-                onChange={(e) => setCmaAddress(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && cmaAddress.trim()) { setCmaReport(""); setCmaLoading(true); generateCMAReport(cmaAddress.trim()); } }}
-                placeholder="Enter property address (e.g., 123 Main St, Las Vegas, NV 89141)"
-                style={{
-                  flex: 1, padding: '12px 16px', border: '2px solid #E5E7EB', borderRadius: 10,
-                  fontSize: 14, fontFamily: theme.font, outline: 'none',
-                }}
-                onFocus={(e) => e.target.style.borderColor = theme.red}
-                onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
-              />
-              <button
-                onClick={() => { if (cmaAddress.trim()) { setCmaReport(""); setCmaLoading(true); generateCMAReport(cmaAddress.trim()); } }}
-                disabled={cmaLoading || !cmaAddress.trim()}
-                style={{
-                  padding: '12px 20px', background: theme.red, color: '#fff',
-                  border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600,
-                  cursor: cmaLoading ? 'not-allowed' : 'pointer', fontFamily: theme.font,
-                  opacity: cmaLoading || !cmaAddress.trim() ? 0.6 : 1,
-                  whiteSpace: 'nowrap', flexShrink: 0,
-                }}
-              >
-                {cmaLoading ? 'Generating...' : 'Generate CMA'}
-              </button>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <input
+                  value={cmaAddress}
+                  onChange={(e) => setCmaAddress(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && cmaAddress.trim()) { setCmaReport(""); setCmaLoading(true); generateCMAReport(cmaAddress.trim()); } }}
+                  placeholder="Enter property address (e.g., 123 Main St, Las Vegas, NV 89141)"
+                  style={{
+                    flex: 1, padding: '12px 16px', border: '2px solid #E5E7EB', borderRadius: 10,
+                    fontSize: 14, fontFamily: theme.font, outline: 'none',
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = theme.red}
+                  onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+                />
+                <button
+                  onClick={() => { if (cmaAddress.trim()) { setCmaReport(""); setCmaLoading(true); generateCMAReport(cmaAddress.trim()); } }}
+                  disabled={cmaLoading || !cmaAddress.trim()}
+                  style={{
+                    padding: '12px 20px', background: theme.red, color: '#fff',
+                    border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600,
+                    cursor: cmaLoading ? 'not-allowed' : 'pointer', fontFamily: theme.font,
+                    opacity: cmaLoading || !cmaAddress.trim() ? 0.6 : 1,
+                    whiteSpace: 'nowrap', flexShrink: 0,
+                  }}
+                >
+                  {cmaLoading ? 'Generating...' : 'Generate CMA'}
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 12, fontSize: 13, color: '#999', pointerEvents: 'none' }}>🔒</span>
+                  <input
+                    id="rpr-url-input"
+                    onChange={(e) => {
+                      const val = e.target.value.trim();
+                      if (val && val.includes('narrpr.com/reports-v2/')) {
+                        setCmaReport(""); setCmaLoading(true);
+                        generateCMAReport(cmaAddress.trim() || 'RPR Report', val);
+                      }
+                    }}
+                    placeholder="Paste RPR Share Link (narrpr.com/reports-v2/...)"
+                    style={{
+                      flex: 1, padding: '10px 16px 10px 34px', border: '2px solid #d4edda', borderRadius: 10,
+                      fontSize: 13, fontFamily: theme.font, outline: 'none', background: '#f8fff8',
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#27AE60'}
+                    onBlur={(e) => e.target.style.borderColor = '#d4edda'}
+                  />
+                </div>
+                <span style={{ fontSize: 11, color: '#999', whiteSpace: 'nowrap' }}>MLS Data</span>
+              </div>
             </div>
 
             {/* Report Content */}

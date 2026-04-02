@@ -1551,21 +1551,52 @@ export default function RealtyAI() {
 
       // ─── RPR PDF LINK (MLS-quality data) ──────────────────────────────
       if (rprUrl && rprUrl.includes('narrpr.com/reports-v2/')) {
-        console.log("[CMA] Fetching RPR PDF:", rprUrl);
+        console.log("[CMA] Fetching RPR PDF via Firecrawl:", rprUrl);
         try {
           // Ensure URL ends with /pdf
           let pdfUrl = rprUrl.trim();
           if (!pdfUrl.endsWith('/pdf')) pdfUrl += '/pdf';
 
-          const rprRes = await fetch("/.netlify/functions/rpr-cma", {
+          // Use Firecrawl scrape with PDF parser — this follows the redirect and parses the PDF
+          const rprRes = await fetch("/.netlify/functions/firecrawl-search", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "fetch-pdf", reportUrl: pdfUrl }),
+            body: JSON.stringify({
+              scrapeUrl: pdfUrl,
+              formats: ["markdown"],
+              parsers: ["pdf"],
+              waitFor: 20000,
+            }),
           });
           const rprJson = await rprRes.json();
 
-          if (rprJson.success && rprJson.content && rprJson.content.length > 500) {
-            const raw = rprJson.content;
+          // Extract content from Firecrawl scrape response
+          let raw = "";
+          if (rprJson.data && typeof rprJson.data === 'string') {
+            raw = rprJson.data;
+          } else if (rprJson.data && rprJson.data.markdown) {
+            raw = rprJson.data.markdown;
+          } else if (rprJson.markdown) {
+            raw = rprJson.markdown;
+          } else if (typeof rprJson === 'string') {
+            raw = rprJson;
+          }
+
+          // If Firecrawl scrape didn't work, try fetching the PDF directly through our function
+          if (!raw || raw.length < 500) {
+            console.log("[CMA] Firecrawl scrape returned insufficient data, trying direct fetch...");
+            const directRes = await fetch("/.netlify/functions/rpr-cma", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "fetch-pdf", reportUrl: pdfUrl }),
+            });
+            const directJson = await directRes.json();
+            if (directJson.success && directJson.content) {
+              raw = directJson.content;
+            }
+          }
+
+          if (raw && raw.length > 500) {
             console.log("[CMA] RPR PDF content:", raw.length, "chars");
 
             // Parse RPR PDF — structured data extraction

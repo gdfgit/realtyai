@@ -1694,8 +1694,6 @@ export default function RealtyAI() {
       const subjectYear = subjectAll.match(/(?:built\s*(?:in\s*)?|year\s*built\s*[:.]?\s*)(\d{4})/i);
       const subjectType = subjectAll.match(/\b(Single Family|Condo|Townhouse|Townhome|Multi Family|Duplex)\b/i);
       const subjectLot = subjectAll.match(/([\d,.]+)\s*(?:acres?|sqft?\s*lot|lot\s*size)/i);
-      const zestMatch = subjectAll.match(/Zestimate[^$]*?\$([\d,]+)/i) || subjectAll.match(/Redfin\s*Estimate[^$]*?\$([\d,]+)/i);
-      const zestimate = zestMatch ? parseInt(zestMatch[1].replace(/,/g, '')) : null;
 
       // ─── PARSE COMPS FROM SCRAPED PAGES ──────────────────────────────
       // Each search result is a page (Zillow/Redfin listing or search results page)
@@ -1786,7 +1784,6 @@ export default function RealtyAI() {
       const avgPpsf = compPpsfs.length > 0 ? Math.round(compPpsfs.reduce((a, b) => a + b, 0) / compPpsfs.length) : null;
       const estimatedValue = avgPpsf && subjectSqft ? avgPpsf * subjectSqft
         : avgCompPrice ? avgCompPrice
-        : zestimate ? zestimate
         : subjectPrice;
 
       // ─── BUILD THE REPORT ────────────────────────────────────────────
@@ -1805,7 +1802,6 @@ export default function RealtyAI() {
       if (subjectYear) report += `| Year Built | ${subjectYear[1]} |\n`;
       if (subjectType) report += `| Type | ${subjectType[1]} |\n`;
       if (subjectLot) report += `| Lot | ${subjectLot[0]} |\n`;
-      if (zestimate) report += `| Zestimate | $${zestimate.toLocaleString()} |\n`;
 
       // Recent Sales
       report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
@@ -1849,7 +1845,6 @@ export default function RealtyAI() {
         report += `| **Estimated Value** | **$${estimatedValue.toLocaleString()}** |\n`;
         report += `| Value Range | $${lowEst.toLocaleString()} — $${highEst.toLocaleString()} |\n`;
       }
-      if (zestimate) report += `| Zestimate | $${zestimate.toLocaleString()} |\n`;
       if (avgCompPrice) report += `| Comp Average | $${avgCompPrice.toLocaleString()} |\n`;
       if (avgPpsf) report += `| Avg Comp $/SqFt | $${avgPpsf} |\n`;
       if (avgPpsf && subjectSqft) report += `| Value at Avg $/SqFt | $${(avgPpsf * subjectSqft).toLocaleString()} |\n`;

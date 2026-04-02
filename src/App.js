@@ -1668,7 +1668,7 @@ export default function RealtyAI() {
       } catch (rprErr) {
         console.log("[CMA] RPR agent error:", rprErr.message);
       }
-        } else {
+
       // ─── FALLBACK: Firecrawl Search (public data) ───────────────────
       console.log("[CMA] Using Firecrawl search fallback...");
       const [subjectRes, compsRes, marketRes] = await Promise.all([

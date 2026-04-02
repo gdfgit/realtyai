@@ -813,8 +813,16 @@ function cleanContent(rawContent) {
 
 // ─── EXTRACT LOCATION FROM QUERY ──────────────────────────────────────
 function extractLocationFromQuery(query) {
+  // Try "in/near/around City, ST" pattern
   const cityState = query.match(/(?:in|near|around)\s+([A-Za-z\s]+(?:,\s*[A-Z]{2})?)/i);
   if (cityState) return cityState[1].trim();
+  // Try "City for/under/budget" pattern
+  const cityBudget = query.match(/^([A-Za-z\s]+?)(?:\s+for|\s+under|\s+\$|\s+budget|\s+homes|\s+houses|\s+properties)/i);
+  if (cityBudget && cityBudget[1].trim().length > 2) return cityBudget[1].trim();
+  // Try "City, ST" anywhere in query
+  const cityStateAnywhere = query.match(/([A-Za-z\s]+,\s*[A-Z]{2})\b/);
+  if (cityStateAnywhere) return cityStateAnywhere[1].trim();
+  // Try zip code
   const zip = query.match(/\b\d{5}\b/);
   if (zip) return zip[0];
   return "";
@@ -831,7 +839,9 @@ function buildPropertyResponse(query, searchResults, mortgageRate, isAddressSear
 
   const exactAddress = isAddressSearch ? query.trim() : "";
   const location = isAddressSearch ? exactAddress : extractLocationFromQuery(query);
-  const mapAddress = exactAddress || location || extractAddress(results[0]?.title || "") || "property location";
+  // Always try to get the best address — use query if it looks like an address, or first result title
+  const firstResultAddr = results[0]?.title ? extractAddress(results[0].title) : "";
+  const mapAddress = exactAddress || location || firstResultAddr || query.trim() || "property location";
   const encodedAddr = encodeURIComponent(mapAddress);
 
   let output = "";

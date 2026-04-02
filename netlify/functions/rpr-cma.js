@@ -1,9 +1,12 @@
 const fetch = require('node-fetch');
 
-// RPR CMA via Firecrawl Interact
-// Flow: Scrape RPR → Login → Search Address → Extract Property + Comps + Market Data
+// RPR CMA — Async approach using Firecrawl Agent
+// Two modes:
+// 1. action=start — kicks off Firecrawl agent to search RPR, returns job ID
+// 2. action=status — polls for agent completion, returns data
+// 3. action=fetch-pdf — fetches a known RPR PDF URL and returns parsed text
 
-const FIRECRAWL_API = 'https://api.firecrawl.dev/v2';
+const FC_API = 'https://api.firecrawl.dev/v2';
 
 exports.handler = async (event) => {
   const headers = {
@@ -17,198 +20,182 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
 
   const FC_KEY = process.env.FIRECRAWL_API_KEY;
-  const RPR_EMAIL = process.env.RPR_EMAIL;
-  const RPR_PASSWORD = process.env.RPR_PASSWORD;
-
-  if (!FC_KEY || !RPR_EMAIL || !RPR_PASSWORD) {
-    return {
-      statusCode: 200, headers,
-      body: JSON.stringify({ error: 'RPR credentials or Firecrawl API key not configured', data: null }),
-    };
+  if (!FC_KEY) {
+    return { statusCode: 200, headers, body: JSON.stringify({ error: 'Firecrawl API key not configured' }) };
   }
 
-  let scrapeId = null;
-
   try {
-    const { address } = JSON.parse(event.body);
-    if (!address) {
-      return { statusCode: 200, headers, body: JSON.stringify({ error: 'No address provided', data: null }) };
-    }
+    const body = JSON.parse(event.body);
+    const action = body.action || 'start';
 
-    console.log('[RPR-CMA] Starting for:', address);
+    // ─── ACTION: START — Kick off Firecrawl Agent ─────────────────────
+    if (action === 'start') {
+      const address = body.address;
+      if (!address) {
+        return { statusCode: 200, headers, body: JSON.stringify({ error: 'No address provided' }) };
+      }
 
-    // ─── STEP 1: Scrape RPR login page with persistent profile ────────
-    console.log('[RPR-CMA] Step 1: Scraping RPR with persistent profile...');
-    const scrapeRes = await fetch(`${FIRECRAWL_API}/scrape`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${FC_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url: 'https://www.narrpr.com',
-        formats: ['markdown'],
-        waitFor: 3000,
-        profile: { name: 'rpr-session', saveChanges: true },
-      }),
-    });
+      console.log('[RPR] Starting agent for:', address);
 
-    const scrapeData = await scrapeRes.json();
-    if (!scrapeData.success) {
-      console.error('[RPR-CMA] Scrape failed:', JSON.stringify(scrapeData));
-      return { statusCode: 200, headers, body: JSON.stringify({ error: 'Failed to load RPR', data: null }) };
-    }
-
-    scrapeId = scrapeData.data?.metadata?.scrapeId;
-    if (!scrapeId) {
-      console.error('[RPR-CMA] No scrapeId returned');
-      return { statusCode: 200, headers, body: JSON.stringify({ error: 'No scrapeId from RPR scrape', data: null }) };
-    }
-
-    console.log('[RPR-CMA] Got scrapeId:', scrapeId);
-
-    // Check if already logged in (persistent profile may have saved session)
-    const pageContent = scrapeData.data?.markdown || '';
-    const isLoggedIn = pageContent.includes('My Markets') || pageContent.includes('Property Search') || pageContent.includes('Sign Out');
-
-    // ─── STEP 2: Login if needed ──────────────────────────────────────
-    if (!isLoggedIn) {
-      console.log('[RPR-CMA] Step 2: Logging in to RPR...');
-      const loginRes = await fetch(`${FIRECRAWL_API}/scrape/${scrapeId}/interact`, {
+      // Use Firecrawl Agent to search RPR and extract CMA data
+      const agentRes = await fetch(`${FC_API}/agent`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${FC_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          prompt: `Log in to RPR. Click "Sign In" or "Log In". Enter the email "${RPR_EMAIL}" in the email field and "${RPR_PASSWORD}" in the password field. Then click the sign in/submit button. Wait for the page to load after login.`,
-          timeout: 30,
+          prompt: `Find comprehensive real estate CMA data for the property at "${address}". 
+Search ONLY on Realtors Property Resource (narrpr.com) — this is a public real estate database with MLS-level data.
+Go to https://www.narrpr.com and search for "${address}".
+Extract from the RPR property page:
+1. Subject property details: list price, RVM value (RPR's estimated value), CMA value, beds, baths, sqft, year built, lot size, property type, price per sqft
+2. At least 5 recently SOLD comparable properties nearby: for each provide the full street address, sold price, sold date, beds, baths, sqft, price per sqft, and distance from subject
+3. Active and pending listings nearby: for each provide address, list price, beds, baths, sqft, days on market
+4. Market trends for the ZIP code: median sold price, median list price, average days on market, sold-to-list ratio, months of inventory, price trend
+Extract real MLS data only. Do not make up data.`,
+          schema: {
+            type: 'object',
+            properties: {
+              subject: {
+                type: 'object',
+                properties: {
+                  address: { type: 'string' },
+                  list_price: { type: 'number' },
+                  rvm_value: { type: 'number', description: 'RPR RVM estimated value' },
+                  cma_value: { type: 'number', description: 'RPR CMA analysis value' },
+                  beds: { type: 'number' },
+                  baths: { type: 'number' },
+                  sqft: { type: 'number' },
+                  year_built: { type: 'number' },
+                  lot_size: { type: 'string' },
+                  property_type: { type: 'string' },
+                  price_per_sqft: { type: 'number' },
+                  tax_assessed_value: { type: 'number' },
+                  annual_tax: { type: 'number' },
+                },
+              },
+              sold_comps: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    address: { type: 'string' },
+                    sold_price: { type: 'number' },
+                    sold_date: { type: 'string' },
+                    beds: { type: 'number' },
+                    baths: { type: 'number' },
+                    sqft: { type: 'number' },
+                    price_per_sqft: { type: 'number' },
+                  },
+                },
+              },
+              active_listings: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    address: { type: 'string' },
+                    asking_price: { type: 'number' },
+                    beds: { type: 'number' },
+                    baths: { type: 'number' },
+                    sqft: { type: 'number' },
+                  },
+                },
+              },
+              market: {
+                type: 'object',
+                properties: {
+                  median_sold_price: { type: 'number' },
+                  median_list_price: { type: 'number' },
+                  avg_days_on_market: { type: 'number' },
+                  sold_to_list_ratio: { type: 'string' },
+                  price_trend: { type: 'string' },
+                  months_of_inventory: { type: 'number' },
+                },
+              },
+            },
+          },
         }),
       });
 
-      const loginData = await loginRes.json();
-      console.log('[RPR-CMA] Login result:', loginData.success ? 'Success' : 'Failed');
+      const agentData = await agentRes.json();
 
-      if (!loginData.success) {
-        console.error('[RPR-CMA] Login failed:', JSON.stringify(loginData));
-        // Try to continue anyway — the profile might still work
+      if (agentData.success && agentData.id) {
+        console.log('[RPR] Agent started:', agentData.id);
+        return {
+          statusCode: 200, headers,
+          body: JSON.stringify({ success: true, jobId: agentData.id, status: 'processing' }),
+        };
+      } else {
+        console.error('[RPR] Agent start failed:', JSON.stringify(agentData).substring(0, 500));
+        return {
+          statusCode: 200, headers,
+          body: JSON.stringify({ error: 'Failed to start RPR agent', details: agentData }),
+        };
+      }
+    }
+
+    // ─── ACTION: STATUS — Poll for agent completion ───────────────────
+    if (action === 'status') {
+      const jobId = body.jobId;
+      if (!jobId) {
+        return { statusCode: 200, headers, body: JSON.stringify({ error: 'No jobId provided' }) };
       }
 
-      // Wait for dashboard to load
-      await new Promise(resolve => setTimeout(resolve, 3000));
-    } else {
-      console.log('[RPR-CMA] Already logged in (persistent profile)');
-    }
-
-    // ─── STEP 3: Search for the property ──────────────────────────────
-    console.log('[RPR-CMA] Step 3: Searching for property...');
-    const searchRes = await fetch(`${FIRECRAWL_API}/scrape/${scrapeId}/interact`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${FC_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: `Search for the property at "${address}". Look for a search bar or location input field, type "${address}" and press Enter or click Search. Wait for the property results to load. If a property detail page appears, stay on it.`,
-        timeout: 20,
-      }),
-    });
-
-    const searchData = await searchRes.json();
-    console.log('[RPR-CMA] Search result:', searchData.success ? 'Success' : 'Failed');
-
-    // ─── STEP 4: Extract property details ─────────────────────────────
-    console.log('[RPR-CMA] Step 4: Extracting property details...');
-    const detailsRes = await fetch(`${FIRECRAWL_API}/scrape/${scrapeId}/interact`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${FC_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: `Extract ALL property information visible on this page. I need:
-1. SUBJECT PROPERTY: address, list price or estimated value (RVM/AVM), beds, baths, sqft, year built, lot size, property type, tax assessed value
-2. COMPARABLE SALES: Look for "Recently Sold", "Comparable Sales", "Nearby Sold" sections. For each comp, extract: full street address, sold price, sold date, beds, baths, sqft, distance from subject
-3. MARKET DATA: median home price, average days on market, price trends, number of active listings
-4. VALUATION: RPR's estimated value (RVM), Zestimate, or any automated valuation shown
-
-Return ALL the data you can see on the page in a structured format.`,
-        timeout: 30,
-      }),
-    });
-
-    const detailsData = await detailsRes.json();
-    console.log('[RPR-CMA] Details extraction:', detailsData.success ? 'Success' : 'Failed');
-
-    // ─── STEP 5: Try to navigate to CMA/Comps section if available ────
-    console.log('[RPR-CMA] Step 5: Looking for comparable sales...');
-    const compsRes = await fetch(`${FIRECRAWL_API}/scrape/${scrapeId}/interact`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${FC_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: `Look for tabs or links labeled "Comps", "Comparable Sales", "Nearby Sold", "Recently Sold", "CMA", or "Valuation". Click on it if you find one. Then extract ALL comparable/sold properties with their full addresses, sold prices, sold dates, beds, baths, and square footage. Also look for any market statistics section and extract median price, days on market, and price trends.`,
-        timeout: 30,
-      }),
-    });
-
-    const compsData = await compsRes.json();
-    console.log('[RPR-CMA] Comps extraction:', compsData.success ? 'Success' : 'Failed');
-
-    // ─── STEP 6: Stop the interact session ────────────────────────────
-    console.log('[RPR-CMA] Step 6: Stopping session...');
-    try {
-      await fetch(`${FIRECRAWL_API}/scrape/${scrapeId}/interact`, {
-        method: 'DELETE',
+      const statusRes = await fetch(`${FC_API}/agent/${jobId}`, {
         headers: { 'Authorization': `Bearer ${FC_KEY}` },
       });
-    } catch (e) {
-      console.log('[RPR-CMA] Session stop error (non-fatal):', e.message);
+
+      const statusData = await statusRes.json();
+      console.log('[RPR] Agent status:', statusData.status);
+
+      return {
+        statusCode: 200, headers,
+        body: JSON.stringify({
+          success: true,
+          status: statusData.status,
+          data: statusData.data || null,
+          result: statusData.result || null,
+        }),
+      };
     }
 
-    // ─── COMBINE ALL EXTRACTED DATA ───────────────────────────────────
-    const allOutput = [
-      detailsData?.output || '',
-      compsData?.output || '',
-      searchData?.output || '',
-    ].join('\n\n');
+    // ─── ACTION: FETCH-PDF — Fetch RPR PDF from public URL ────────────
+    if (action === 'fetch-pdf') {
+      const reportUrl = body.reportUrl;
+      if (!reportUrl) {
+        return { statusCode: 200, headers, body: JSON.stringify({ error: 'No reportUrl provided' }) };
+      }
 
-    console.log('[RPR-CMA] Total output length:', allOutput.length);
+      console.log('[RPR] Fetching PDF:', reportUrl);
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        success: true,
-        data: {
-          address,
-          raw: allOutput,
-          details: detailsData?.output || '',
-          comps: compsData?.output || '',
-          search: searchData?.output || '',
-        },
-      }),
-    };
+      const pdfRes = await fetch(reportUrl, {
+        redirect: 'follow',
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      });
+
+      if (pdfRes.ok) {
+        const text = await pdfRes.text();
+        return {
+          statusCode: 200, headers,
+          body: JSON.stringify({ success: true, content: text.substring(0, 50000) }),
+        };
+      } else {
+        return {
+          statusCode: 200, headers,
+          body: JSON.stringify({ error: 'PDF fetch failed: ' + pdfRes.status }),
+        };
+      }
+    }
+
+    return { statusCode: 200, headers, body: JSON.stringify({ error: 'Unknown action: ' + action }) };
 
   } catch (error) {
-    console.error('[RPR-CMA] Error:', error.message);
-
-    // Try to clean up the session
-    if (scrapeId) {
-      try {
-        await fetch(`${FIRECRAWL_API}/scrape/${scrapeId}/interact`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${process.env.FIRECRAWL_API_KEY}` },
-        });
-      } catch (e) { /* ignore cleanup errors */ }
-    }
-
+    console.error('[RPR] Error:', error.message);
     return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ error: 'RPR CMA failed: ' + error.message, data: null }),
+      statusCode: 200, headers,
+      body: JSON.stringify({ error: 'RPR CMA failed: ' + error.message }),
     };
   }
 };

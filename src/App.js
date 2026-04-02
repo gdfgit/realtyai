@@ -1540,7 +1540,127 @@ export default function RealtyAI() {
       const zip = address.match(/\d{5}/)?.[0] || "";
       const area = city && state ? `${city}, ${state}` : zip || address;
 
-      // 3 parallel searches — all with scrapeOptions for full page content
+      // ─── TRY RPR FIRST (MLS-quality data) ────────────────────────────
+      let rprData = null;
+      try {
+        console.log("[CMA] Trying RPR for MLS data...");
+        const rprRes = await fetch("/.netlify/functions/rpr-cma", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address }),
+        });
+        const rprJson = await rprRes.json();
+        if (rprJson.success && rprJson.data && rprJson.data.raw && rprJson.data.raw.length > 100) {
+          rprData = rprJson.data;
+          console.log("[CMA] RPR data received:", rprData.raw.length, "chars");
+        } else {
+          console.log("[CMA] RPR returned insufficient data, falling back to Firecrawl search");
+        }
+      } catch (rprErr) {
+        console.log("[CMA] RPR unavailable, falling back to Firecrawl search:", rprErr.message);
+      }
+
+      // ─── IF RPR RETURNED DATA, PARSE IT ──────────────────────────────
+      if (rprData) {
+        const raw = rprData.raw;
+
+        // Parse subject property from RPR data
+        const rprPrice = extractPrice(raw);
+        const rprSqft = extractSqft(raw);
+        const rprBeds = raw.match(/(\d+)\s*(?:beds?|bedrooms?|bd|br)\b/i);
+        const rprBaths = raw.match(/([\d.]+)\s*(?:baths?|bathrooms?|ba)\b/i);
+        const rprYear = raw.match(/(?:built\s*(?:in\s*)?|year\s*built\s*[:.]?\s*)(\d{4})/i);
+        const rprType = raw.match(/\b(Single Family|Condo|Townhouse|Townhome|Multi Family|Duplex)\b/i);
+        const rprLot = raw.match(/([\d,.]+)\s*(?:acres?|sqft?\s*lot|lot\s*size)/i);
+        const rvmMatch = raw.match(/(?:RVM|AVM|RPR\s*Value|Estimated\s*Value)[^$]*?\$([\d,]+)/i);
+        const rvm = rvmMatch ? parseInt(rvmMatch[1].replace(/,/g, '')) : null;
+
+        // Parse comps from RPR data — look for address + price patterns
+        const rprComps = [];
+        const compBlocks = raw.split(/\n/).filter(line => /\d+\s+[A-Za-z]/.test(line) && /\$[\d,]+/.test(line));
+        compBlocks.forEach(line => {
+          const addr = line.match(/(\d+\s+[A-Za-z][A-Za-z\s]*(?:St|Ave|Dr|Ln|Rd|Ct|Way|Pl|Blvd|Cir|Pkwy|Ter|Loop)[^,]*)/i);
+          const price = extractPrice(line);
+          const beds = line.match(/(\d+)\s*(?:bd|beds?|br)/i);
+          const baths = line.match(/([\d.]+)\s*(?:ba|baths?)/i);
+          const sqft = extractSqft(line);
+          if (addr && price && price > 50000 && price !== rprPrice) {
+            rprComps.push({
+              address: addr[1].trim().substring(0, 40),
+              price, beds: beds ? parseInt(beds[1]) : null,
+              baths: baths ? parseFloat(baths[1]) : null,
+              sqft: sqft || null,
+            });
+          }
+        });
+
+        // Parse market data
+        const medianMatch = raw.match(/median\s*(?:home|list|sale)?\s*price\s*[:.]?\s*\$([\d,]+)/i);
+        const domMatch = raw.match(/(?:average|median)?\s*(\d+)\s*days?\s*(?:on\s*market|DOM)/i);
+
+        // Calculate estimated value
+        const compPrices = rprComps.map(c => c.price).filter(p => p > 50000);
+        const compPpsfs = rprComps.filter(c => c.price && c.sqft).map(c => Math.round(c.price / c.sqft));
+        const avgCompPrice = compPrices.length > 0 ? Math.round(compPrices.reduce((a, b) => a + b, 0) / compPrices.length) : null;
+        const avgPpsf = compPpsfs.length > 0 ? Math.round(compPpsfs.reduce((a, b) => a + b, 0) / compPpsfs.length) : null;
+        const estimatedValue = rvm ? rvm : (avgPpsf && rprSqft ? avgPpsf * rprSqft : avgCompPrice || rprPrice);
+
+        // Build RPR-sourced report
+        let report = `🔒 **Data Source: RPR (Realtors Property Resource) — MLS Data**\n\n`;
+
+        report += `📊 **SUBJECT PROPERTY**\n\n`;
+        report += `| Field | Data |\n|-------|------|\n`;
+        report += `| Address | ${address} |\n`;
+        if (rprPrice) report += `| List Price | $${rprPrice.toLocaleString()} |\n`;
+        if (rvm) report += `| RPR Value (RVM) | $${rvm.toLocaleString()} |\n`;
+        if (rprBeds) report += `| Beds | ${rprBeds[1]} |\n`;
+        if (rprBaths) report += `| Baths | ${rprBaths[1]} |\n`;
+        if (rprSqft) report += `| Sq Ft | ${rprSqft.toLocaleString()} |\n`;
+        if (rprPrice && rprSqft) report += `| $/SqFt | $${Math.round(rprPrice / rprSqft)} |\n`;
+        if (rprYear) report += `| Year Built | ${rprYear[1]} |\n`;
+        if (rprType) report += `| Type | ${rprType[1]} |\n`;
+        if (rprLot) report += `| Lot | ${rprLot[0]} |\n`;
+
+        report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        report += `🏘️ **RECENT SALES (Comparables)**\n\n`;
+        if (rprComps.length > 0) {
+          report += `| Address | Sold Price | Beds | Baths | SqFt | $/SqFt |\n`;
+          report += `|---------|-----------|------|-------|------|--------|\n`;
+          rprComps.slice(0, 6).forEach(c => {
+            const ppsf = (c.price && c.sqft) ? `$${Math.round(c.price / c.sqft)}` : '—';
+            report += `| ${c.address} | $${c.price.toLocaleString()} | ${c.beds || '—'} | ${c.baths || '—'} | ${c.sqft ? c.sqft.toLocaleString() : '—'} | ${ppsf} |\n`;
+          });
+          if (avgCompPrice) report += `\n**Comp Average: $${avgCompPrice.toLocaleString()}**`;
+          if (avgPpsf) report += ` **| Avg $/SqFt: $${avgPpsf}**`;
+          report += `\n`;
+        } else {
+          report += `RPR comp data parsing in progress — raw data received.\n`;
+        }
+
+        report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        report += `📈 **MARKET OVERVIEW — ${area}**\n\n`;
+        report += `| Metric | Value |\n|--------|-------|\n`;
+        if (medianMatch) report += `| Median Home Price | $${medianMatch[1]} |\n`;
+        if (domMatch) report += `| Avg Days on Market | ${domMatch[1]} days |\n`;
+        if (rprComps.length > 0) report += `| Comps Analyzed | ${rprComps.length} properties |\n`;
+
+        report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        report += `💰 **ESTIMATED VALUE**\n\n`;
+        report += `| Metric | Value |\n|--------|-------|\n`;
+        if (estimatedValue) {
+          report += `| **Estimated Value** | **$${estimatedValue.toLocaleString()}** |\n`;
+          report += `| Value Range | $${Math.round(estimatedValue * 0.95).toLocaleString()} — $${Math.round(estimatedValue * 1.05).toLocaleString()} |\n`;
+        }
+        if (rvm) report += `| RPR Value (RVM) | $${rvm.toLocaleString()} |\n`;
+        if (avgCompPrice) report += `| Comp Average | $${avgCompPrice.toLocaleString()} |\n`;
+        if (avgPpsf) report += `| Avg Comp $/SqFt | $${avgPpsf} |\n`;
+
+        setCmaReport(report);
+        setCmaLoading(false);
+        return;
+      }
+
+      // ─── FALLBACK: Firecrawl Search (public data) ───────────────────
       const [subjectRes, compsRes, marketRes] = await Promise.all([
         firecrawlSearch(`${address} zillow redfin property details`, {
           limit: 2,

@@ -1538,6 +1538,11 @@ export default function RealtyAI() {
       const state = cityMatch ? cityMatch[2].trim() : "";
       const zip = address.match(/\d{5}/)?.[0] || "";
       const area = city && state ? `${city}, ${state}` : zip || address;
+      } catch (error) {
+  console.error("Failed to parse address:", error);
+  setCmaError("Unable to parse the provided address.");
+  setCmaLoading(false);
+}
     
       // ─── TRY RPR AGENT FIRST (MLS-quality data) ──────────────────────
       try {

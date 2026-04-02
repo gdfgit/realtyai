@@ -1,7 +1,3 @@
-// netlify/functions/firecrawl-search.js
-// Server-side proxy for Firecrawl /v2/search API
-// API key stored in Netlify env var: FIRECRAWL_API_KEY
-
 const fetch = require('node-fetch');
 
 exports.handler = async (event) => {
@@ -12,105 +8,73 @@ exports.handler = async (event) => {
     'Content-Type': 'application/json',
   };
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
-  }
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+  if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
 
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
-  }
-
-  const API_KEY = process.env.FIRECRAWL_API_KEY;
-  if (!API_KEY) {
-    console.error('FIRECRAWL_API_KEY not set in environment variables');
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ success: false, error: 'Firecrawl API key not configured', data: [] }),
-    };
+  const apiKey = process.env.FIRECRAWL_API_KEY;
+  if (!apiKey) {
+    return { statusCode: 200, headers, body: JSON.stringify({ error: 'Firecrawl API key not configured', success: false }) };
   }
 
   try {
-    const { query, limit, scrapeOptions, lang, country } = JSON.parse(event.body);
+    const body = JSON.parse(event.body);
 
-    if (!query) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, error: 'Missing query', data: [] }),
+    // ─── MODE 1: Single page scrape (for RPR PDFs, etc.) ────────────
+    if (body.scrapeUrl) {
+      console.log('[Firecrawl] Scraping URL:', body.scrapeUrl);
+      const scrapeBody = {
+        url: body.scrapeUrl,
+        formats: body.formats || ['markdown'],
+        waitFor: body.waitFor || 5000,
       };
+      if (body.parsers) scrapeBody.parsers = body.parsers;
+      if (body.onlyMainContent !== undefined) scrapeBody.onlyMainContent = body.onlyMainContent;
+
+      const res = await fetch('https://api.firecrawl.dev/v2/scrape', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(scrapeBody),
+      });
+
+      const data = await res.json();
+      console.log('[Firecrawl] Scrape result:', data.success ? 'OK' : 'Failed', '| Content length:', (data.data?.markdown || '').length);
+      return { statusCode: 200, headers, body: JSON.stringify(data) };
     }
 
-    const requestBody = {
+    // ─── MODE 2: Search (existing behavior) ─────────────────────────
+    const { query, limit, scrapeOptions } = body;
+    if (!query) {
+      return { statusCode: 200, headers, body: JSON.stringify({ error: 'No query provided', success: false }) };
+    }
+
+    console.log('[Firecrawl] Searching:', query, '| Limit:', limit || 5);
+
+    const searchBody = {
       query,
       limit: limit || 5,
-      lang: lang || 'en',
-      country: country || 'us',
     };
-
-    // Only add scrapeOptions if explicitly requested
-    // Default: NO scraping — just search results (fast, 2-3 seconds)
-    // With scraping: slower (10-20 seconds) but gets full page content
     if (scrapeOptions) {
-      requestBody.scrapeOptions = scrapeOptions;
+      searchBody.scrapeOptions = scrapeOptions;
     }
-
-    console.log('[Firecrawl] Searching:', query, '| limit:', requestBody.limit, '| scrape:', !!scrapeOptions);
-
-    // Set a timeout to avoid Netlify 504s
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000); // 20 second timeout
 
     const res = await fetch('https://api.firecrawl.dev/v2/search', {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
       },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
+      body: JSON.stringify(searchBody),
     });
 
-    clearTimeout(timeout);
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error('[Firecrawl] API error:', res.status, errText);
-      return {
-        statusCode: 200, // Return 200 so frontend doesn't crash
-        headers,
-        body: JSON.stringify({
-          success: false,
-          error: `Firecrawl API error: ${res.status}`,
-          details: errText,
-          data: [],
-        }),
-      };
-    }
-
     const data = await res.json();
-    console.log('[Firecrawl] Success — results:', (data.data || []).length);
+    console.log('[Firecrawl] Search results:', data.success ? (data.data?.length || 0) : 'Failed');
+    return { statusCode: 200, headers, body: JSON.stringify(data) };
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify(data),
-    };
   } catch (error) {
-    // Handle timeout specifically
-    if (error.name === 'AbortError') {
-      console.error('[Firecrawl] Request timed out after 20s');
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ success: false, error: 'Search timed out — try a simpler query', data: [] }),
-      };
-    }
-    console.error('[Firecrawl] Function error:', error);
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ success: false, error: 'Firecrawl search failed: ' + error.message, data: [] }),
-    };
+    console.error('[Firecrawl] Error:', error.message);
+    return { statusCode: 200, headers, body: JSON.stringify({ error: error.message, success: false }) };
   }
 };

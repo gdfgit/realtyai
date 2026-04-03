@@ -123,6 +123,9 @@ const Icons = {
   stopSpeaking: (
     <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
   ),
+  agentMarketplace: (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M3 3h18v4H3z" stroke="#E31837" strokeWidth="2" strokeLinejoin="round"/><path d="M5 7v13h14V7" stroke="#E31837" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 10h6M9 14h6" stroke="#E31837" strokeWidth="1.5" strokeLinecap="round"/></svg>
+  ),
 };
 
 // ─── GLOBAL STYLES ────────────────────────────────────────────────────
@@ -1098,6 +1101,24 @@ export default function RealtyAI() {
   const [cmaAddress, setCmaAddress] = useState("");
   const [cmaLoading, setCmaLoading] = useState(false);
   const [cmaReport, setCmaReport] = useState("");
+  // *** MARKETPLACE ***
+  const [showMarketplace, setShowMarketplace] = useState(false);
+  const [marketplaceView, setMarketplaceView] = useState("feed"); // feed | post | detail
+  const [marketplaceListings, setMarketplaceListings] = useState([]);
+  const [marketplaceLoading, setMarketplaceLoading] = useState(false);
+  const [selectedListing, setSelectedListing] = useState(null);
+  const [listingMessages, setListingMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [offerAmount, setOfferAmount] = useState("");
+  const [showOfferInput, setShowOfferInput] = useState(false);
+  const [postForm, setPostForm] = useState({
+    address: "", city: "", state: "NV", zip: "", description: "",
+    price: "", beds: "", baths: "", sqft: "", lot_sqft: "",
+    year_built: "", property_type: "Single Family", photos: [],
+  });
+  const [postPhotos, setPostPhotos] = useState([]);
+  const [postUploading, setPostUploading] = useState(false);
+  const [marketplaceFilter, setMarketplaceFilter] = useState("all");
   // *** Counters — all from Supabase ***
   const [listingCount, setListingCount] = useState(0);
   const [offerCount, setOfferCount] = useState(0);
@@ -1468,6 +1489,154 @@ export default function RealtyAI() {
     }
   };
 
+  // *** MARKETPLACE: Fetch all listings ***
+  const fetchMarketplaceListings = async () => {
+    setMarketplaceLoading(true);
+    try {
+      const filter = marketplaceFilter !== "all" ? `&status=eq.${marketplaceFilter}` : "";
+      const res = await supabaseRequest(`/marketplace_listings?order=created_at.desc${filter}&select=*`, { method: "GET" });
+      if (res.data) setMarketplaceListings(res.data);
+    } catch (err) {
+      console.error("[Marketplace] Fetch error:", err);
+    }
+    setMarketplaceLoading(false);
+  };
+
+  // *** MARKETPLACE: Fetch messages for a listing ***
+  const fetchListingMessages = async (listingId) => {
+    try {
+      const res = await supabaseRequest(`/marketplace_messages?listing_id=eq.${listingId}&order=created_at.asc&select=*`, { method: "GET" });
+      if (res.data) setListingMessages(res.data);
+    } catch (err) {
+      console.error("[Marketplace] Messages fetch error:", err);
+    }
+  };
+
+  // *** MARKETPLACE: Send a message ***
+  const sendMarketplaceMessage = async (listingId, isOffer = false) => {
+    if (!user) return;
+    const msg = isOffer ? `💰 Offer: $${Number(offerAmount).toLocaleString()}` : newMessage.trim();
+    if (!msg && !isOffer) return;
+    try {
+      await supabaseRequest("/marketplace_messages", {
+        method: "POST",
+        body: JSON.stringify({
+          listing_id: listingId,
+          user_email: user.email,
+          user_name: user.name || user.email.split("@")[0],
+          message: msg,
+          offer_amount: isOffer ? Number(offerAmount) : null,
+          is_offer: isOffer,
+          offer_status: isOffer ? "pending" : null,
+        }),
+      });
+      setNewMessage("");
+      setOfferAmount("");
+      setShowOfferInput(false);
+      await fetchListingMessages(listingId);
+    } catch (err) {
+      console.error("[Marketplace] Send message error:", err);
+    }
+  };
+
+  // *** MARKETPLACE: Accept/Reject offer ***
+  const handleOfferResponse = async (messageId, status, listing) => {
+    try {
+      await supabaseRequest(`/marketplace_messages?id=eq.${messageId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ offer_status: status }),
+      });
+      if (status === "accepted") {
+        await supabaseRequest(`/marketplace_listings?id=eq.${listing.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "pending" }),
+        });
+        if (window.emailjs) {
+          window.emailjs.send("service_rh6uozl", "template_o678r3s", {
+            to_email: "gdifaziorealtor@gmail.com",
+            subject: `🏠 Offer Accepted — ${listing.address}`,
+            message: `An offer was accepted on ${listing.address}. The buyer will be prompted to submit a formal offer through the Offer Agent.`,
+          }, "xElMdZFRvZqh8-bIw").catch(e => console.log("Email error:", e));
+        }
+      }
+      await fetchListingMessages(listing.id);
+      await fetchMarketplaceListings();
+    } catch (err) {
+      console.error("[Marketplace] Offer response error:", err);
+    }
+  };
+
+  // *** MARKETPLACE: Upload photos to Supabase Storage ***
+  const uploadMarketplacePhotos = async (files) => {
+    setPostUploading(true);
+    const uploadedUrls = [];
+    for (const file of files) {
+      const ext = file.name.split(".").pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      try {
+        const res = await fetch(`${SUPABASE_URL}/storage/v1/object/marketplace-photos/${fileName}`, {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            "Content-Type": file.type,
+          },
+          body: file,
+        });
+        if (res.ok) {
+          uploadedUrls.push(`${SUPABASE_URL}/storage/v1/object/public/marketplace-photos/${fileName}`);
+        }
+      } catch (err) {
+        console.error("[Marketplace] Photo upload error:", err);
+      }
+    }
+    setPostPhotos(prev => [...prev, ...uploadedUrls]);
+    setPostUploading(false);
+  };
+
+  // *** MARKETPLACE: Submit new listing ***
+  const submitMarketplaceListing = async () => {
+    if (!user || !postForm.address || !postForm.price) return;
+    try {
+      await supabaseRequest("/marketplace_listings", {
+        method: "POST",
+        body: JSON.stringify({
+          seller_email: user.email,
+          seller_name: user.name || user.email.split("@")[0],
+          address: postForm.address,
+          city: postForm.city,
+          state: postForm.state,
+          zip: postForm.zip,
+          description: postForm.description,
+          price: Number(postForm.price),
+          beds: postForm.beds ? Number(postForm.beds) : null,
+          baths: postForm.baths ? Number(postForm.baths) : null,
+          sqft: postForm.sqft ? Number(postForm.sqft) : null,
+          lot_sqft: postForm.lot_sqft ? Number(postForm.lot_sqft) : null,
+          year_built: postForm.year_built ? Number(postForm.year_built) : null,
+          property_type: postForm.property_type,
+          photos: postPhotos,
+        }),
+      });
+      setPostForm({
+        address: "", city: "", state: "NV", zip: "", description: "",
+        price: "", beds: "", baths: "", sqft: "", lot_sqft: "",
+        year_built: "", property_type: "Single Family", photos: [],
+      });
+      setPostPhotos([]);
+      setMarketplaceView("feed");
+      await fetchMarketplaceListings();
+    } catch (err) {
+      console.error("[Marketplace] Submit error:", err);
+      alert("Error posting listing. Please try again.");
+    }
+  };
+
+  // *** MARKETPLACE: Auto-fetch on open or filter change ***
+  useEffect(() => {
+    if (showMarketplace) fetchMarketplaceListings();
+  }, [showMarketplace, marketplaceFilter]);
+
   // *** SIDEBAR: Agent click handler (used by sidebar buttons) ***
   const handleAgentClick = (agent) => {
     setSidebarOpen(false); // close mobile sidebar
@@ -1487,6 +1656,9 @@ export default function RealtyAI() {
       setCmaReport("");
       setCmaLoading(false);
       setShowCMAPanel(true);
+    } else if (agent === 'marketplace') {
+      setShowMarketplace(true);
+      setMarketplaceView("feed");
     }
   };
 
@@ -2369,6 +2541,7 @@ export default function RealtyAI() {
               { icon: Icons.agentApproved, label: "Get approved", agent: "mortgage" },
               { icon: Icons.agentLive, label: "Live stream", agent: "live" },
               { icon: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M3 3h18v18H3z" stroke="#E31837" strokeWidth="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18" stroke="#E31837" strokeWidth="1.5" opacity="0.5"/></svg>, label: "CMA Report", agent: "cma" },
+              { icon: Icons.agentMarketplace, label: "Marketplace", agent: "marketplace" },
             ].map((item, i) => (
               <div key={i} onClick={() => handleAgentClick(item.agent)} style={{
                 display: "flex", alignItems: "center", gap: 10, padding: "10px 0",
@@ -2847,6 +3020,499 @@ export default function RealtyAI() {
               <button onClick={() => setShowTourAgent(false)} style={{ background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#555', minHeight: 36 }}>✕ Close</button>
             </div>
             <iframe ref={tourIframeRef} src="/schedule-tour.html" style={{ width: '100%', height: 'calc(100% - 49px)', border: 'none' }} title="Schedule a Tour" />
+          </div>
+        </div>
+      )}
+
+      {/* ═══ MARKETPLACE OVERLAY ═══ */}
+      {showMarketplace && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          zIndex: 9999, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+        }}
+        onClick={(e) => { if (e.target === e.currentTarget) setShowMarketplace(false); }}
+        >
+          <div style={{
+            width: window.innerWidth <= 768 ? '100%' : '95%',
+            maxWidth: window.innerWidth <= 768 ? '100%' : 1100,
+            height: window.innerWidth <= 768 ? '100%' : '94vh',
+            background: '#fff',
+            borderRadius: window.innerWidth <= 768 ? 0 : '16px 16px 0 0',
+            boxShadow: '0 -4px 40px rgba(0,0,0,0.25)',
+            position: 'relative', overflow: 'hidden',
+            animation: 'slideUp 0.3s ease-out',
+            display: 'flex', flexDirection: 'column',
+          }}>
+            {/* Marketplace Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 20px', background: '#fff', borderBottom: '1px solid #E5E7EB',
+              flexShrink: 0,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <img src="/logo.png" alt="Realty AI" style={{ width: 28, height: 28, borderRadius: 6 }} />
+                <span style={{ fontSize: 16, fontWeight: 700, color: theme.red, fontFamily: theme.font }}>
+                  Marketplace
+                </span>
+                {marketplaceView !== "feed" && (
+                  <button onClick={() => { setMarketplaceView("feed"); setSelectedListing(null); }} style={{
+                    background: 'none', border: '1px solid #E5E7EB', borderRadius: 8,
+                    padding: '4px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    fontFamily: theme.font, color: '#555', marginLeft: 8,
+                  }}>← Back</button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {user && marketplaceView === "feed" && (
+                  <button onClick={() => setMarketplaceView("post")} style={{
+                    padding: '8px 16px', background: theme.red, color: '#fff',
+                    border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: theme.font,
+                  }}>+ Post Listing</button>
+                )}
+                <button onClick={() => setShowMarketplace(false)} style={{
+                  background: 'none', border: '1px solid #E5E7EB', borderRadius: 8,
+                  padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: theme.font, color: '#555', minHeight: 32,
+                }}>✕ Close</button>
+              </div>
+            </div>
+
+            {/* ─── FEED VIEW ─── */}
+            {marketplaceView === "feed" && (
+              <div style={{ flex: 1, overflow: 'auto' }}>
+                {/* Filter Bar */}
+                <div style={{ padding: '12px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {["all", "active", "pending", "sold"].map(f => (
+                    <button key={f} onClick={() => setMarketplaceFilter(f)} style={{
+                      padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                      border: marketplaceFilter === f ? '2px solid ' + theme.red : '1px solid #ddd',
+                      background: marketplaceFilter === f ? '#FEF2F2' : '#fff',
+                      color: marketplaceFilter === f ? theme.red : '#555',
+                      cursor: 'pointer', fontFamily: theme.font, textTransform: 'capitalize',
+                    }}>{f === "all" ? "All Listings" : f}</button>
+                  ))}
+                  <span style={{ marginLeft: 'auto', fontSize: 12, color: '#999' }}>
+                    {marketplaceListings.length} listing{marketplaceListings.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {/* Listings Grid */}
+                {marketplaceLoading ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+                    {Icons.spinner}
+                  </div>
+                ) : marketplaceListings.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
+                    <div style={{ fontSize: 48, marginBottom: 16 }}>🏘️</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>No listings yet</div>
+                    <div style={{ fontSize: 13 }}>Be the first to post a property for sale!</div>
+                  </div>
+                ) : (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))',
+                    gap: 16, padding: 20,
+                  }}>
+                    {marketplaceListings.map(listing => (
+                      <div key={listing.id} onClick={() => {
+                        setSelectedListing(listing);
+                        setMarketplaceView("detail");
+                        fetchListingMessages(listing.id);
+                      }} style={{
+                        border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden',
+                        cursor: 'pointer', transition: 'all 0.2s', background: '#fff',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.12)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                      >
+                        {/* Photo */}
+                        <div style={{
+                          height: 180, background: '#f3f4f6',
+                          backgroundImage: listing.photos && listing.photos[0] ? `url(${listing.photos[0]})` : 'none',
+                          backgroundSize: 'cover', backgroundPosition: 'center',
+                          position: 'relative',
+                        }}>
+                          {(!listing.photos || !listing.photos[0]) && (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#ccc', fontSize: 48 }}>🏠</div>
+                          )}
+                          <div style={{
+                            position: 'absolute', top: 10, left: 10,
+                            padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                            textTransform: 'uppercase', letterSpacing: '0.5px',
+                            background: listing.status === 'active' ? '#22C55E' : listing.status === 'pending' ? '#F59E0B' : listing.status === 'sold' ? '#EF4444' : '#6B7280',
+                            color: '#fff',
+                          }}>{listing.status}</div>
+                          {listing.photos && listing.photos.length > 1 && (
+                            <div style={{
+                              position: 'absolute', bottom: 10, right: 10,
+                              padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+                              background: 'rgba(0,0,0,0.6)', color: '#fff',
+                            }}>📷 {listing.photos.length}</div>
+                          )}
+                        </div>
+                        {/* Info */}
+                        <div style={{ padding: '14px 16px' }}>
+                          <div style={{ fontSize: 20, fontWeight: 700, color: theme.dark, fontFamily: theme.font }}>
+                            ${Number(listing.price).toLocaleString()}
+                          </div>
+                          <div style={{ fontSize: 13, color: '#555', marginTop: 4, fontWeight: 500 }}>
+                            {listing.address}
+                          </div>
+                          {(listing.beds || listing.baths || listing.sqft) && (
+                            <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12, color: '#777' }}>
+                              {listing.beds && <span>{listing.beds} bed{listing.beds > 1 ? 's' : ''}</span>}
+                              {listing.baths && <span>{listing.baths} bath{listing.baths > 1 ? 's' : ''}</span>}
+                              {listing.sqft && <span>{Number(listing.sqft).toLocaleString()} sqft</span>}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 11, color: '#aaa' }}>
+                            <span>by {listing.seller_name || 'Agent'}</span>
+                            <span>{listing.offers_count > 0 ? `${listing.offers_count} offer${listing.offers_count > 1 ? 's' : ''}` : 'No offers'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ─── POST LISTING VIEW ─── */}
+            {marketplaceView === "post" && (
+              <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 700, color: theme.dark, fontFamily: theme.font, marginBottom: 20 }}>
+                  Post a Listing
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : '1fr 1fr', gap: 14, maxWidth: 700 }}>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>Property Address *</label>
+                    <input value={postForm.address} onChange={(e) => setPostForm(p => ({...p, address: e.target.value}))}
+                      placeholder="123 Main St" style={{ width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontFamily: theme.font, outline: 'none', boxSizing: 'border-box' }}
+                      onFocus={(e) => e.target.style.borderColor = theme.red} onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>City</label>
+                    <input value={postForm.city} onChange={(e) => setPostForm(p => ({...p, city: e.target.value}))}
+                      placeholder="Las Vegas" style={{ width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontFamily: theme.font, outline: 'none', boxSizing: 'border-box' }}
+                      onFocus={(e) => e.target.style.borderColor = theme.red} onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>State</label>
+                      <input value={postForm.state} onChange={(e) => setPostForm(p => ({...p, state: e.target.value}))}
+                        placeholder="NV" style={{ width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontFamily: theme.font, outline: 'none', boxSizing: 'border-box' }}
+                        onFocus={(e) => e.target.style.borderColor = theme.red} onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>ZIP</label>
+                      <input value={postForm.zip} onChange={(e) => setPostForm(p => ({...p, zip: e.target.value}))}
+                        placeholder="89141" style={{ width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontFamily: theme.font, outline: 'none', boxSizing: 'border-box' }}
+                        onFocus={(e) => e.target.style.borderColor = theme.red} onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>Asking Price *</label>
+                    <input value={postForm.price} onChange={(e) => setPostForm(p => ({...p, price: e.target.value.replace(/[^0-9]/g, '')}))}
+                      placeholder="600000" type="text" style={{ width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontFamily: theme.font, outline: 'none', boxSizing: 'border-box' }}
+                      onFocus={(e) => e.target.style.borderColor = theme.red} onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+                    />
+                    {postForm.price && <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>${Number(postForm.price).toLocaleString()}</div>}
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>Property Type</label>
+                    <select value={postForm.property_type} onChange={(e) => setPostForm(p => ({...p, property_type: e.target.value}))}
+                      style={{ width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontFamily: theme.font, outline: 'none', background: '#fff', boxSizing: 'border-box' }}>
+                      <option>Single Family</option>
+                      <option>Condo</option>
+                      <option>Townhouse</option>
+                      <option>Multi-Family</option>
+                      <option>Land</option>
+                      <option>Commercial</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>Beds</label>
+                    <input value={postForm.beds} onChange={(e) => setPostForm(p => ({...p, beds: e.target.value}))}
+                      placeholder="4" type="number" style={{ width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontFamily: theme.font, outline: 'none', boxSizing: 'border-box' }}
+                      onFocus={(e) => e.target.style.borderColor = theme.red} onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>Baths</label>
+                    <input value={postForm.baths} onChange={(e) => setPostForm(p => ({...p, baths: e.target.value}))}
+                      placeholder="3" type="number" style={{ width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontFamily: theme.font, outline: 'none', boxSizing: 'border-box' }}
+                      onFocus={(e) => e.target.style.borderColor = theme.red} onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>Sqft</label>
+                    <input value={postForm.sqft} onChange={(e) => setPostForm(p => ({...p, sqft: e.target.value}))}
+                      placeholder="2400" type="number" style={{ width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontFamily: theme.font, outline: 'none', boxSizing: 'border-box' }}
+                      onFocus={(e) => e.target.style.borderColor = theme.red} onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>Year Built</label>
+                    <input value={postForm.year_built} onChange={(e) => setPostForm(p => ({...p, year_built: e.target.value}))}
+                      placeholder="2005" type="number" style={{ width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontFamily: theme.font, outline: 'none', boxSizing: 'border-box' }}
+                      onFocus={(e) => e.target.style.borderColor = theme.red} onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+                    />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>Description</label>
+                    <textarea value={postForm.description} onChange={(e) => setPostForm(p => ({...p, description: e.target.value}))}
+                      placeholder="Describe the property — features, upgrades, neighborhood highlights..."
+                      rows={4} style={{ width: '100%', padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontFamily: theme.font, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                      onFocus={(e) => e.target.style.borderColor = theme.red} onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+                    />
+                  </div>
+                  {/* Photo Upload */}
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 4 }}>Photos</label>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {postPhotos.map((url, i) => (
+                        <div key={i} style={{ position: 'relative' }}>
+                          <img src={url} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid #ddd' }} />
+                          <button onClick={() => setPostPhotos(p => p.filter((_, idx) => idx !== i))} style={{
+                            position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%',
+                            background: '#EF4444', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>✕</button>
+                        </div>
+                      ))}
+                      <label style={{
+                        width: 80, height: 80, borderRadius: 8, border: '2px dashed #ddd',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: postUploading ? 'wait' : 'pointer', color: '#aaa', fontSize: 24,
+                        background: '#fafafa',
+                      }}>
+                        {postUploading ? '...' : '+'}
+                        <input type="file" accept="image/*" multiple hidden
+                          onChange={(e) => { if (e.target.files.length) uploadMarketplacePhotos(Array.from(e.target.files)); }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  {/* Submit */}
+                  <div style={{ gridColumn: '1 / -1', marginTop: 8 }}>
+                    <button onClick={submitMarketplaceListing} disabled={!postForm.address || !postForm.price}
+                      style={{
+                        padding: '14px 32px', background: theme.red, color: '#fff',
+                        border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
+                        cursor: !postForm.address || !postForm.price ? 'not-allowed' : 'pointer',
+                        fontFamily: theme.font, opacity: !postForm.address || !postForm.price ? 0.5 : 1,
+                        boxShadow: '0 4px 16px rgba(227,24,55,0.25)',
+                      }}>
+                      Post Listing
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ─── DETAIL VIEW (Listing + Chat) ─── */}
+            {marketplaceView === "detail" && selectedListing && (
+              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: window.innerWidth <= 768 ? 'column' : 'row' }}>
+                {/* Left — Listing Info */}
+                <div style={{
+                  width: window.innerWidth <= 768 ? '100%' : '55%',
+                  overflow: 'auto', borderRight: window.innerWidth <= 768 ? 'none' : '1px solid #E5E7EB',
+                  borderBottom: window.innerWidth <= 768 ? '1px solid #E5E7EB' : 'none',
+                  maxHeight: window.innerWidth <= 768 ? '45%' : 'auto',
+                }}>
+                  {/* Photos carousel */}
+                  {selectedListing.photos && selectedListing.photos.length > 0 ? (
+                    <div style={{ position: 'relative' }}>
+                      <div style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory' }}>
+                        {selectedListing.photos.map((url, i) => (
+                          <img key={i} src={url} alt="" style={{
+                            width: '100%', height: 260, objectFit: 'cover', flexShrink: 0,
+                            scrollSnapAlign: 'start',
+                          }} />
+                        ))}
+                      </div>
+                      {selectedListing.photos.length > 1 && (
+                        <div style={{ position: 'absolute', bottom: 10, right: 10, padding: '3px 8px', borderRadius: 4, fontSize: 11, background: 'rgba(0,0,0,0.6)', color: '#fff' }}>
+                          📷 {selectedListing.photos.length} photos — scroll →
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ height: 200, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc', fontSize: 64 }}>🏠</div>
+                  )}
+                  <div style={{ padding: '16px 20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ fontSize: 24, fontWeight: 700, color: theme.dark, fontFamily: theme.font }}>
+                          ${Number(selectedListing.price).toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: 14, color: '#555', marginTop: 2 }}>{selectedListing.address}</div>
+                        {selectedListing.city && (
+                          <div style={{ fontSize: 13, color: '#777' }}>
+                            {selectedListing.city}{selectedListing.state ? `, ${selectedListing.state}` : ''} {selectedListing.zip || ''}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{
+                        padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                        textTransform: 'uppercase',
+                        background: selectedListing.status === 'active' ? '#22C55E' : selectedListing.status === 'pending' ? '#F59E0B' : '#EF4444',
+                        color: '#fff',
+                      }}>{selectedListing.status}</div>
+                    </div>
+                    {(selectedListing.beds || selectedListing.baths || selectedListing.sqft) && (
+                      <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 13, color: '#555' }}>
+                        {selectedListing.beds && <span><strong>{selectedListing.beds}</strong> beds</span>}
+                        {selectedListing.baths && <span><strong>{selectedListing.baths}</strong> baths</span>}
+                        {selectedListing.sqft && <span><strong>{Number(selectedListing.sqft).toLocaleString()}</strong> sqft</span>}
+                        {selectedListing.year_built && <span>Built <strong>{selectedListing.year_built}</strong></span>}
+                      </div>
+                    )}
+                    {selectedListing.description && (
+                      <p style={{ fontSize: 13, color: '#666', marginTop: 12, lineHeight: 1.6 }}>{selectedListing.description}</p>
+                    )}
+                    <div style={{ display: 'flex', gap: 12, marginTop: 14, fontSize: 11, color: '#aaa' }}>
+                      <span>Listed by {selectedListing.seller_name || 'Agent'}</span>
+                      <span>•</span>
+                      <span>{new Date(selectedListing.created_at).toLocaleDateString()}</span>
+                      <span>•</span>
+                      <span>{selectedListing.views_count || 0} views</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right — Chat Thread */}
+                <div style={{
+                  flex: 1, display: 'flex', flexDirection: 'column', background: '#FAFAFA',
+                  minHeight: window.innerWidth <= 768 ? '55%' : 'auto',
+                }}>
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid #E5E7EB', background: '#fff' }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: theme.dark }}>
+                      Discussion & Offers ({listingMessages.length})
+                    </span>
+                  </div>
+                  {/* Messages */}
+                  <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {listingMessages.length === 0 && (
+                      <div style={{ textAlign: 'center', color: '#aaa', fontSize: 13, padding: 30 }}>
+                        No messages yet. Start the conversation!
+                      </div>
+                    )}
+                    {listingMessages.map(msg => (
+                      <div key={msg.id} style={{
+                        padding: '10px 14px', borderRadius: 10,
+                        background: msg.is_offer ? '#FEF9C3' : msg.user_email === (user && user.email) ? '#E8F5FF' : '#fff',
+                        border: msg.is_offer ? '2px solid #F59E0B' : '1px solid #E5E7EB',
+                        maxWidth: '85%',
+                        alignSelf: msg.user_email === (user && user.email) ? 'flex-end' : 'flex-start',
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: msg.is_offer ? '#B45309' : '#555' }}>
+                            {msg.user_name || (msg.user_email ? msg.user_email.split("@")[0] : 'User')}
+                            {msg.is_offer && ' — OFFER'}
+                          </span>
+                          <span style={{ fontSize: 10, color: '#aaa', marginLeft: 10 }}>
+                            {new Date(msg.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 14, color: '#333' }}>
+                          {msg.is_offer ? (
+                            <div>
+                              <div style={{ fontSize: 18, fontWeight: 700, color: '#B45309' }}>
+                                ${Number(msg.offer_amount).toLocaleString()}
+                              </div>
+                              {msg.offer_status && (
+                                <div style={{
+                                  display: 'inline-block', marginTop: 6, padding: '3px 10px', borderRadius: 4,
+                                  fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+                                  background: msg.offer_status === 'accepted' ? '#22C55E' : msg.offer_status === 'rejected' ? '#EF4444' : '#F59E0B',
+                                  color: '#fff',
+                                }}>{msg.offer_status}</div>
+                              )}
+                              {/* Seller can accept/reject */}
+                              {msg.offer_status === 'pending' && user && user.email === selectedListing.seller_email && (
+                                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                                  <button onClick={() => handleOfferResponse(msg.id, 'accepted', selectedListing)} style={{
+                                    padding: '6px 14px', background: '#22C55E', color: '#fff', border: 'none',
+                                    borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                  }}>✓ Accept</button>
+                                  <button onClick={() => handleOfferResponse(msg.id, 'rejected', selectedListing)} style={{
+                                    padding: '6px 14px', background: '#EF4444', color: '#fff', border: 'none',
+                                    borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                  }}>✕ Reject</button>
+                                </div>
+                              )}
+                              {/* Buyer prompted to submit formal offer when accepted */}
+                              {msg.offer_status === 'accepted' && user && msg.user_email === user.email && (
+                                <button onClick={() => { setShowMarketplace(false); setShowOfferAgent(true); }} style={{
+                                  marginTop: 8, padding: '8px 16px', background: theme.red, color: '#fff',
+                                  border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                                }}>📝 Submit Formal Offer</button>
+                              )}
+                            </div>
+                          ) : (
+                            msg.message
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Input Area */}
+                  {user ? (
+                    <div style={{ padding: '12px 16px', borderTop: '1px solid #E5E7EB', background: '#fff' }}>
+                      {showOfferInput ? (
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#B45309' }}>$</span>
+                          <input value={offerAmount} onChange={(e) => setOfferAmount(e.target.value.replace(/[^0-9]/g, ''))}
+                            placeholder="Your offer amount" type="text" autoFocus
+                            style={{ flex: 1, padding: '10px 14px', border: '2px solid #F59E0B', borderRadius: 8, fontSize: 14, fontFamily: theme.font, outline: 'none' }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' && offerAmount) sendMarketplaceMessage(selectedListing.id, true); }}
+                          />
+                          <button onClick={() => sendMarketplaceMessage(selectedListing.id, true)} disabled={!offerAmount}
+                            style={{ padding: '10px 16px', background: '#F59E0B', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: offerAmount ? 'pointer' : 'not-allowed', opacity: offerAmount ? 1 : 0.5 }}>
+                            Send Offer
+                          </button>
+                          <button onClick={() => setShowOfferInput(false)}
+                            style={{ padding: '10px 12px', background: '#f3f4f6', color: '#555', border: 'none', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <input value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
+                            placeholder="Type a message..."
+                            style={{ flex: 1, padding: '10px 14px', border: '2px solid #E5E7EB', borderRadius: 8, fontSize: 14, fontFamily: theme.font, outline: 'none' }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' && newMessage.trim()) sendMarketplaceMessage(selectedListing.id); }}
+                            onFocus={(e) => e.target.style.borderColor = theme.red} onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+                          />
+                          <button onClick={() => sendMarketplaceMessage(selectedListing.id)} disabled={!newMessage.trim()}
+                            style={{ padding: '10px 14px', background: theme.red, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: newMessage.trim() ? 'pointer' : 'not-allowed', opacity: newMessage.trim() ? 1 : 0.5 }}>
+                            Send
+                          </button>
+                          {selectedListing.status === 'active' && user && user.email !== selectedListing.seller_email && (
+                            <button onClick={() => setShowOfferInput(true)}
+                              style={{ padding: '10px 14px', background: '#F59E0B', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                              💰 Make Offer
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '16px', textAlign: 'center', borderTop: '1px solid #E5E7EB', background: '#fff' }}>
+                      <span style={{ fontSize: 13, color: '#999' }}>Sign in to chat and make offers</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
